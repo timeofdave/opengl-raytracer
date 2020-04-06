@@ -8,6 +8,7 @@
 #include <cmath>
 
 #include <glm/glm.hpp>
+#include <glm\gtc\type_ptr.hpp>
 
 const char *WINDOW_TITLE = "Ray Tracing";
 const double FRAME_RATE_MS = 1;
@@ -23,6 +24,15 @@ float d = 1;
 
 point3 vertices[6] = {
 	point3(-1.0,  1.0,  1.0),
+	point3(-1.0, -1.0,  1.0),
+	point3(1.0,  -1.0,  1.0),
+	point3(-1.0, 1.0,  1.0),
+	point3(1.0, -1.0, 1.0),
+	point3(1.0,  1.0, 1.0)
+};
+
+point3 data[6] = {
+	point3(-1.0,  0.0,  1.0),
 	point3(-1.0, -1.0,  1.0),
 	point3(1.0,  -1.0,  1.0),
 	point3(-1.0, 1.0,  1.0),
@@ -80,11 +90,13 @@ void init(char *fn) {
 	glClearColor( 0.7, 0.7, 0.8, 1 );
 
 	// set up a 1D texture for each scanline of output
-	GLuint textureID;
-	glGenTextures( 1, &textureID );
-	glBindTexture( GL_TEXTURE_1D, textureID );
-	glTexParameteri( GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-	glTexParameteri( GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+	//GLuint textureID;
+	//glGenTextures( 1, &textureID );
+	//glBindTexture( GL_TEXTURE_1D, textureID );
+	//glTexParameteri( GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+	//glTexParameteri( GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+
+	glUniform3fv(glGetUniformLocation(program, "data"), 6, glm::value_ptr(data[0]));
 }
 
 //----------------------------------------------------------------------------
@@ -105,7 +117,7 @@ void display(void) {
 	v |= v >> 16;
 	v++;
 
-	glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, v, 0, GL_RGB, GL_FLOAT, texture);
+	//glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, v, 0, GL_RGB, GL_FLOAT, texture);
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
