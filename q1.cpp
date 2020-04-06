@@ -13,13 +13,22 @@ const char *WINDOW_TITLE = "Ray Tracing";
 const double FRAME_RATE_MS = 1;
 
 colour3 texture[1<<16]; // big enough for a row of pixels
-point3 vertices[2]; // xy+u for start and end of line
+//point3 vertices[2]; // xy+u for start and end of line
 GLuint Window;
 int vp_width, vp_height;
 float drawing_y = 0;
 
 point3 eye;
 float d = 1;
+
+point3 vertices[6] = {
+	point3(-1.0,  1.0,  1.0),
+	point3(-1.0, -1.0,  1.0),
+	point3(1.0,  -1.0,  1.0),
+	point3(-1.0, 1.0,  1.0),
+	point3(1.0, -1.0, 1.0),
+	point3(1.0,  1.0, 1.0)
+};
 
 //----------------------------------------------------------------------------
 
@@ -54,7 +63,7 @@ void init(char *fn) {
 	GLuint buffer;
 	glGenBuffers( 1, &buffer );
 	glBindBuffer( GL_ARRAY_BUFFER, buffer );
-	glBufferData( GL_ARRAY_BUFFER, sizeof(vertices), NULL, GL_STATIC_DRAW );
+	glBufferData( GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW );
 
 	// Load shaders and use the resulting shader program
 	GLuint program = InitShader( "v.glsl", "f.glsl" );
@@ -80,7 +89,34 @@ void init(char *fn) {
 
 //----------------------------------------------------------------------------
 
-void display( void ) {
+
+void display(void) {
+	std::cout << "--- Next Frame ---" << std::endl;
+
+	// to ensure a power-of-two texture, get the next highest power of two
+	// https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+	unsigned int v; // compute the next highest power of 2 of 32-bit v
+	v = vp_width;
+	v--;
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	v++;
+
+	glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, v, 0, GL_RGB, GL_FLOAT, texture);
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+
+	glFlush();
+	glFinish();
+	glutSwapBuffers();
+
+	
+}
+
+void old_display( void ) {
 	// draw one scanline at a time, to each buffer; only clear when we draw the first scanline
 	// (when fract(drawing_y) == 0.0, draw one buffer, when it is 0.5 draw the other)
 	
@@ -185,5 +221,5 @@ void reshape( int width, int height ) {
 	vp_width = width;
 	vp_height = height;
 	glUniform2f( Window, width, height );
-	drawing_y = 0;
+	//drawing_y = 0;
 }
