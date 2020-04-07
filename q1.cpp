@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "raytracer.h"
+#include "packer.h"
 
 #include <iostream>
 #define M_PI 3.14159265358979323846264338327950288
@@ -13,11 +14,13 @@
 const char *WINDOW_TITLE = "Ray Tracing";
 const double FRAME_RATE_MS = 1;
 
-colour3 texture[1<<16]; // big enough for a row of pixels
-//point3 vertices[2]; // xy+u for start and end of line
+const int NUM_OBJECTS = 20;
+const int NUM_LIGHTS = 10;
+const int SPACE_GEOMETRY = 1000;
+const int SPACE_MATERIALS = 100;
+
 GLuint Window;
 int vp_width, vp_height;
-float drawing_y = 0;
 
 point3 eye;
 float d = 1;
@@ -31,14 +34,10 @@ point3 vertices[6] = {
 	point3(1.0,  1.0, 1.0)
 };
 
-point3 data[6] = {
-	point3(-1.0,  0.0,  1.0),
-	point3(-1.0, -1.0,  1.0),
-	point3(1.0,  -1.0,  1.0),
-	point3(-1.0, 1.0,  1.0),
-	point3(1.0, -1.0, 1.0),
-	point3(1.0,  1.0, 1.0)
-};
+int objectIds[NUM_OBJECTS];
+int lightIds[NUM_LIGHTS];
+point3 geometry[SPACE_GEOMETRY];
+point3 materials[SPACE_MATERIALS];
 
 //----------------------------------------------------------------------------
 
@@ -63,6 +62,7 @@ point3 s(int x, int y) {
 // OpenGL initialization
 void init(char *fn) {
 	choose_scene(fn);
+	pack_scene();
    
 	// Create a vertex array object
 	GLuint vao;
@@ -86,17 +86,13 @@ void init(char *fn) {
 
 	Window = glGetUniformLocation( program, "Window" );
 
-	// glClearColor( background_colour[0], background_colour[1], background_colour[2], 1 );
 	glClearColor( 0.7, 0.7, 0.8, 1 );
 
-	// set up a 1D texture for each scanline of output
-	//GLuint textureID;
-	//glGenTextures( 1, &textureID );
-	//glBindTexture( GL_TEXTURE_1D, textureID );
-	//glTexParameteri( GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-	//glTexParameteri( GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 
-	glUniform3fv(glGetUniformLocation(program, "data"), 6, glm::value_ptr(data[0]));
+	glUniform1iv(glGetUniformLocation(program, "objectIds"), NUM_OBJECTS, &objectIds[0]);
+	glUniform1iv(glGetUniformLocation(program, "lightIds"), NUM_LIGHTS, &lightIds[0]);
+	glUniform3fv(glGetUniformLocation(program, "geometry"), SPACE_GEOMETRY, glm::value_ptr(geometry[0]));
+	glUniform3fv(glGetUniformLocation(program, "materials"), SPACE_MATERIALS, glm::value_ptr(materials[0]));
 }
 
 //----------------------------------------------------------------------------
@@ -105,81 +101,13 @@ void init(char *fn) {
 void display(void) {
 	std::cout << "--- Next Frame ---" << std::endl;
 
-	// to ensure a power-of-two texture, get the next highest power of two
-	// https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
-	unsigned int v; // compute the next highest power of 2 of 32-bit v
-	v = vp_width;
-	v--;
-	v |= v >> 1;
-	v |= v >> 2;
-	v |= v >> 4;
-	v |= v >> 8;
-	v |= v >> 16;
-	v++;
-
-	//glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, v, 0, GL_RGB, GL_FLOAT, texture);
-
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
 	glFlush();
 	glFinish();
 	glutSwapBuffers();
-
-	
 }
 
-void old_display( void ) {
-	// draw one scanline at a time, to each buffer; only clear when we draw the first scanline
-	// (when fract(drawing_y) == 0.0, draw one buffer, when it is 0.5 draw the other)
-	
-	if (drawing_y <= 0.5) {
-		glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-
-		glFlush();
-		glFinish();
-		glutSwapBuffers();
-
-		drawing_y += 0.5;
-
-	} else if (drawing_y >= 1.0 && drawing_y <= vp_height + 0.5) {
-		int y = int(drawing_y) - 1;
-
-		// only recalculate if this is a new scanline
-		if (drawing_y == int(drawing_y)) {
-
-			for (int x = 0; x < vp_width; x++) {
-				if (!trace(eye, s(x, y), texture[x], false, 0, true)) {
-					texture[x] = background_colour;
-				}
-			}
-
-			// to ensure a power-of-two texture, get the next highest power of two
-			// https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
-			unsigned int v; // compute the next highest power of 2 of 32-bit v
-			v = vp_width;
-			v--;
-			v |= v >> 1;
-			v |= v >> 2;
-			v |= v >> 4;
-			v |= v >> 8;
-			v |= v >> 16;
-			v++;
-			
-			glTexImage1D( GL_TEXTURE_1D, 0, GL_RGB, v, 0, GL_RGB, GL_FLOAT, texture );
-			vertices[0] = point3(0, y, 0);
-			vertices[1] = point3(v, y, 1);
-			glBufferSubData( GL_ARRAY_BUFFER, 0, 2 * sizeof(point3), vertices);
-		}
-
-		glDrawArrays( GL_LINES, 0, 2 );
-		
-		glFlush();
-		glFinish();
-		glutSwapBuffers();
-		
-		drawing_y += 0.5;
-	}
-}
 
 //----------------------------------------------------------------------------
 
@@ -190,7 +118,6 @@ void keyboard( unsigned char key, int x, int y ) {
 		exit( EXIT_SUCCESS );
 		break;
 	case ' ':
-		drawing_y = 1;
 		break;
 	}
 }
