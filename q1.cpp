@@ -99,7 +99,7 @@ void init(char *fn) {
 
 
 void display(void) {
-	std::cout << "--- Next Frame ---" << std::endl;
+	//std::cout << "--- Next Frame ---" << std::endl;
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
