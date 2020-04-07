@@ -18,8 +18,10 @@ const int NUM_OBJECTS = 20;
 const int NUM_LIGHTS = 10;
 const int SPACE_GEOMETRY = 1000;
 const int SPACE_MATERIALS = 100;
+const float MOVE_SPEED = 0.01;
 
 GLuint Window;
+GLuint program;
 int vp_width, vp_height;
 
 point3 eye;
@@ -63,6 +65,7 @@ point3 s(int x, int y) {
 void init(char *fn) {
 	choose_scene(fn);
 	pack_scene();
+	eye = point3(0, 0, 0);
    
 	// Create a vertex array object
 	GLuint vao;
@@ -76,7 +79,7 @@ void init(char *fn) {
 	glBufferData( GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW );
 
 	// Load shaders and use the resulting shader program
-	GLuint program = InitShader( "v.glsl", "f.glsl" );
+	program = InitShader( "v.glsl", "f.glsl" );
 	glUseProgram( program );
 
 	// set up vertex arrays
@@ -88,7 +91,7 @@ void init(char *fn) {
 
 	glClearColor( 0.7, 0.7, 0.8, 1 );
 
-
+	glUniform3f(glGetUniformLocation(program, "eyePos"), eye.x, eye.y, eye.z);
 	glUniform1iv(glGetUniformLocation(program, "objectIds"), NUM_OBJECTS, &objectIds[0]);
 	glUniform1iv(glGetUniformLocation(program, "lightIds"), NUM_LIGHTS, &lightIds[0]);
 	glUniform3fv(glGetUniformLocation(program, "geometry"), SPACE_GEOMETRY, glm::value_ptr(geometry[0]));
@@ -100,6 +103,8 @@ void init(char *fn) {
 
 void display(void) {
 	//std::cout << "--- Next Frame ---" << std::endl;
+
+	glUniform3f(glGetUniformLocation(program, "eyePos"), eye.x, eye.y, eye.z);
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -117,9 +122,26 @@ void keyboard( unsigned char key, int x, int y ) {
 	case 'q': case 'Q':
 		exit( EXIT_SUCCESS );
 		break;
-	case ' ':
+	case 'w':
+		eye.z += MOVE_SPEED;
+		break;
+	case 's':
+		eye.z -= MOVE_SPEED;
+		break;
+	case 'a':
+		eye.x -= MOVE_SPEED;
+		break;
+	case 'd':
+		eye.x += MOVE_SPEED;
+		break;
+	case 'r':
+		eye.y += MOVE_SPEED;
+		break;
+	case 'f':
+		eye.y -= MOVE_SPEED;
 		break;
 	}
+
 }
 
 //----------------------------------------------------------------------------
