@@ -18,7 +18,7 @@ const int NUM_OBJECTS = 20;
 const int NUM_LIGHTS = 10;
 const int SPACE_GEOMETRY = 1000;
 const int SPACE_MATERIALS = 100;
-const float MOVE_SPEED = 0.01;
+const float MOVE_SPEED = 0.04;
 
 GLuint Window;
 GLuint program;
@@ -123,10 +123,10 @@ void keyboard( unsigned char key, int x, int y ) {
 		exit( EXIT_SUCCESS );
 		break;
 	case 'w':
-		eye.z += MOVE_SPEED;
+		eye.z -= MOVE_SPEED;
 		break;
 	case 's':
-		eye.z -= MOVE_SPEED;
+		eye.z += MOVE_SPEED;
 		break;
 	case 'a':
 		eye.x -= MOVE_SPEED;
