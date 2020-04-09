@@ -10,12 +10,14 @@ extern int objectIds[6];
 extern int lightIds[6];
 extern point3 geometry[6];
 extern point3 materials[6];
-
+extern int numObjects;
+extern int numLights;
 
 /****************************************************************************/
 
 
 void packObjects(int &geoId, int &matId) {
+	numObjects = objects.size();
 
 	for (int i = 0; i < objects.size(); i++) {
 		Object* object = objects[i];
@@ -56,6 +58,7 @@ void packObjects(int &geoId, int &matId) {
 
 
 void packLights(int& geoId) {
+	numLights = lights.size();
 
 	for (int i = 0; i < lights.size(); i++) {
 		Light* light = lights[i];

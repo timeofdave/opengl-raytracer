@@ -38,16 +38,18 @@ uniform int objectIds[NUM_OBJECTS];
 uniform int lightIds[NUM_LIGHTS];
 uniform vec3 geometry[SPACE_GEOMETRY];
 uniform vec3 materials[SPACE_MATERIALS];
+uniform int numObjects;
+uniform int numLights;
 
 // --------------------- Debug Variables
 float debug = 1234567.0; // flag value, means not debugging
-float debugMin = -10.0;
-float debugMax = 10.0; // set these to a reasonable range
+float debugMin = 0.0;  // black
+float debugMax = 10.0; // red
 
 // --------------------- General Variables
 RayResult rays[RECURSION_LIMIT];
 int currRay = 0;
-
+int numRays = 1;
 
 void main() { 
     out_colour.a = 1;
@@ -60,6 +62,8 @@ void main() {
     vec3 s = vec3(e.x + xPos * FAKE_FOV, e.y + yPos * FAKE_FOV, e.z - 1.0);
 
     for (currRay = 0; currRay < RECURSION_LIMIT; currRay++) {
+		if (currRay >= numRays) { break; }
+
         RayResult ray = rays[currRay];
         //vec3 colour = vec3(1, 0, 0);
         if (trace(e, s, ray.colour)) {
@@ -92,6 +96,7 @@ bool trace(vec3 e, vec3 s, inout vec3 colour) {
 		vec3 V = normalize(e - P); // Vector from P to eye.
 		
 		for (int i = 0; i < NUM_LIGHTS; i++) { // For each light
+			if (i == numLights) { break; }
 			int lid = lightIds[i];
 
 			vec3 L = vec3(0, 0, 0);
@@ -115,6 +120,22 @@ bool trace(vec3 e, vec3 s, inout vec3 colour) {
 }
 
 
+// vec3 calcReflection(int oid, vec3 P, vec3 N, vec3 V, bool outside, bool pick) {
+// 	vec3 result = ZEROS;
+
+// 	if (object->reflective != ZEROS && numRays < RECURSION_LIMIT && outside) {
+// 		vec3 R = normalize(2.0 * dot(N, V) * N - V); // Reflection direction
+
+// 		rays[numRays].effectiveness = 
+// 		vec3 colourRefl;
+// 		if (trace(P, P + R, colourRefl, pick, recursionLevel + 1, outside)) {
+// 			result += colourRefl * object->reflective;
+// 		}
+// 		numRays++;
+// 	}
+
+// 	return result;
+// }
 
 
 bool getIntersection(vec3 e, vec3 d, inout float dist, out int indexOfClosest, out int indexOfTriangle) {
