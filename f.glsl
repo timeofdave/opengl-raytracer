@@ -18,7 +18,9 @@ bool trace(vec3 e, vec3 s, inout vec3 colour);
 void debugRed();
 void debugViewRect(float xPos, float yPos);
 bool getIntersection(vec3 e, vec3 d, inout float dist, out int indexOfClosest, out int indexOfTriangle);
-bool checkIfInShadow(vec3 P, int lid, vec3 lightPos, int indexOfClosest, int indexOfTriangle);
+bool testIntersectionWithObject(int i, vec3 e, vec3 d, inout float dist, out int indexOfClosest, out int indexOfTriangle);
+bool checkIfInShadow(vec3 P, int lid, vec3 lightPos, out vec3 throughLight, int indexOfClosest, int indexOfTriangle);
+vec3 getShadowAmount(vec3 P, int lid, vec3 lightPos);
 bool determineLightDirection(vec3 P, int lid, inout vec3 L, inout vec3 lightPos);
 vec3 phongIllumination(int oid, int lid, vec3 N, vec3 L, vec3 V);
 vec3 calcNormal(int oid, vec3 P, int indexOfTriangle);
@@ -101,10 +103,13 @@ bool trace(vec3 e, vec3 s, inout vec3 colour) {
 
 			vec3 L = vec3(0, 0, 0);
 			vec3 lightPos = vec3(0, 0, 0);
+			vec3 throughLight = vec3(1,1,1);
 
 			if (!determineLightDirection(P, lid, L, lightPos)) { continue; }
-			if (checkIfInShadow(P, lid, lightPos, indexOfClosest, indexOfTriangle)) { continue; }
-			total += phongIllumination(oid, lid, N, L, V);
+
+			vec3 light = getShadowAmount(P, lid, lightPos);
+			//if (checkIfInShadow(P, lid, lightPos, throughLight, indexOfClosest, indexOfTriangle)) { continue; }
+			total += phongIllumination(oid, lid, N, L, V) * light;
 		}
 
 		//total += calcReflection(object, P, N, V, outside, pick, recursionLevel);
@@ -141,105 +146,118 @@ bool trace(vec3 e, vec3 s, inout vec3 colour) {
 bool getIntersection(vec3 e, vec3 d, inout float dist, out int indexOfClosest, out int indexOfTriangle) {
 
 	for (int i = 0; i < NUM_OBJECTS; i++) {
-        int oid = objectIds[i];
-
-		if (geometry[oid].r == 0) { // if sphere
-			vec3 pos = geometry[oid + 2];
-			vec3 emc = e - pos;
-			float r = float(geometry[oid].b);
-
-			float discriminant = dot(d, emc) * dot(d, emc) - dot(d, d) * (dot(emc, emc) - r * r);
-			float t = FLT_MAX;
-
-			if (discriminant >= 0.f) {
-				// One or two intersections, I don't think I care which.
-				float t1 = (dot(-d, emc) + sqrt(discriminant)) / dot(d, d);
-				float t2 = (dot(-d, emc) - sqrt(discriminant)) / dot(d, d);
-				t1 = (t1 > ANTI_ACNE) ? t1 : FLT_MAX;
-				t2 = (t2 > ANTI_ACNE) ? t2 : FLT_MAX;
-				t = min(t1, t2);
-
-				if (t < dist) {
-					dist = t;
-					indexOfClosest = i;
-                    
-				}
-			}
-		}
-		else if (geometry[oid].r == 1) {
-			vec3 A = geometry[oid + 2]; // object->pos
-			vec3 N = geometry[oid + 3]; // object->normal
-
-			float t = calcPlaneDistance(A, N, d, e);
-
-			if (t > acneThreshold(N, d)) { // hit the plane
-				if (t < dist) {
-					dist = t;
-					indexOfClosest = i;
-				}
-			}
-		}
-		else if (geometry[oid].r == 2) {
-            int numTris = int(geometry[oid].g);
-
-			for (int j = 0; j < TRIANGLES_LIMIT; j++) {
-                if (j == numTris) {
-                    break;
-                }
-                int tid = oid + 4 + (j * 4); // Triange id
-
-				vec3 A = geometry[tid + 0];
-				vec3 B = geometry[tid + 1];
-				vec3 C = geometry[tid + 2];
-				vec3 N = geometry[tid + 3];
-
-				float t = calcPlaneDistance(A, N, d, e);
-				vec3 X = e + (t * d);
-
-				float inA = dot(cross(B - A, X - A), N);
-				float inB = dot(cross(C - B, X - B), N);
-				float inC = dot(cross(A - C, X - C), N);
-
-				if (t > acneThreshold(N, d) && inA > 0.f && inB > 0.f && inC > 0.f) { // hit front of triangle
-					if (t < dist) {
-						dist = t;
-						indexOfClosest = i;
-						indexOfTriangle = j;
-					}
-				}
-			} // for each triangle
-		}
+        testIntersectionWithObject(i, e, d, dist, indexOfClosest, indexOfTriangle);
 	} // for each object
 
 	return (indexOfClosest >= 0);
 }
 
+bool testIntersectionWithObject(int i, vec3 e, vec3 d, inout float dist, out int indexOfClosest, out int indexOfTriangle) {
+	int oid = objectIds[i];
 
+	if (geometry[oid].r == 0) { // if sphere
+		vec3 pos = geometry[oid + 2];
+		vec3 emc = e - pos;
+		float r = float(geometry[oid].b);
 
-// ------------------- SHADOW CHECK -----------------------
-// Check if the point P is in shadow from this light.
-// Cast a ray from the light to the point P.
-bool checkIfInShadow(vec3 P, int lid, vec3 lightPos, int indexOfClosest, int indexOfTriangle) {
-	bool isInShadow = false;
-    int lightType = int(geometry[lid].r);
+		float discriminant = dot(d, emc) * dot(d, emc) - dot(d, d) * (dot(emc, emc) - r * r);
+		float t = FLT_MAX;
 
-	if (lightType > 3) { // AMBIENT
-		float distL = FLT_MAX;
-		int indexObjL = -1;
-		int indexTriL = -1;
-		vec3 shadowRay = (P - lightPos) / 100.f;
-		bool hit = getIntersection(lightPos, shadowRay, distL, indexObjL, indexTriL);
+		if (discriminant >= 0.f) {
+			// One or two intersections, I don't think I care which.
+			float t1 = (dot(-d, emc) + sqrt(discriminant)) / dot(d, d);
+			float t2 = (dot(-d, emc) - sqrt(discriminant)) / dot(d, d);
+			t1 = (t1 > ANTI_ACNE) ? t1 : FLT_MAX;
+			t2 = (t2 > ANTI_ACNE) ? t2 : FLT_MAX;
+			t = min(t1, t2);
 
-		if (hit) { // should always hit, but there's always room for floating point error.
-			vec3 shadowP = lightPos + (distL * shadowRay); // Point of intersection
-
-			//if (glm::distance(P, shadowP) > 0.001) {
-			if (indexObjL != indexOfClosest || indexTriL != indexOfTriangle) {
-				isInShadow = true; // Pretend this light doesn't exist.
+			if (t < dist) {
+				dist = t;
+				indexOfClosest = i;
+				return true;
 			}
 		}
 	}
-	return isInShadow;
+	else if (geometry[oid].r == 1) {
+		vec3 A = geometry[oid + 2]; // object->pos
+		vec3 N = geometry[oid + 3]; // object->normal
+
+		float t = calcPlaneDistance(A, N, d, e);
+
+		if (t > acneThreshold(N, d)) { // hit the plane
+			if (t < dist) {
+				dist = t;
+				indexOfClosest = i;
+				return true;
+			}
+		}
+	}
+	else if (geometry[oid].r == 2) {
+		int numTris = int(geometry[oid].g);
+
+		for (int j = 0; j < TRIANGLES_LIMIT; j++) {
+			if (j == numTris) {
+				break;
+			}
+			int tid = oid + 4 + (j * 4); // Triange id
+
+			vec3 A = geometry[tid + 0];
+			vec3 B = geometry[tid + 1];
+			vec3 C = geometry[tid + 2];
+			vec3 N = geometry[tid + 3];
+
+			float t = calcPlaneDistance(A, N, d, e);
+			vec3 X = e + (t * d);
+
+			float inA = dot(cross(B - A, X - A), N);
+			float inB = dot(cross(C - B, X - B), N);
+			float inC = dot(cross(A - C, X - C), N);
+
+			if (t > acneThreshold(N, d) && inA > 0.f && inB > 0.f && inC > 0.f) { // hit front of triangle
+				if (t < dist) {
+					dist = t;
+					indexOfClosest = i;
+					indexOfTriangle = j;
+					return true;
+				}
+			}
+		} // for each triangle
+	}
+	return false;
+}
+
+
+// ------------------- SHADOW CHECK -----------------------
+// get the amount of light that makes it to this point
+// Cast a ray from the point P to the light.
+vec3 getShadowAmount(vec3 P, int lid, vec3 lightPos) {
+    int lightType = int(geometry[lid].r);
+	vec3 throughLight = vec3(1,1,1); // default all light makes it through
+	int hitCount = 0;
+	if (lightType > 3) { // AMBIENT
+		
+		vec3 shadowRay = normalize(lightPos - P);
+
+		for (int i = 0; i < NUM_OBJECTS; i++) {
+
+			if (i == numObjects) // this is needed otherwise this breaks
+				break;
+
+			int oid = objectIds[i];
+			float maxDist = length(lightPos - P);
+			int indexObjL = -1;
+			int indexTriL = -1;
+			
+			// test every object for intersection
+        	if(testIntersectionWithObject(i, P, shadowRay, maxDist, indexObjL, indexTriL)) {
+				int matid = int(geometry[oid + 1].r);
+    			vec3 transmission = materials[matid + 4];
+				throughLight = throughLight * transmission;
+			}
+		} // for each object
+
+	}
+	return throughLight;
 }
 
 
