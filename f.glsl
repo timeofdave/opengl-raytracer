@@ -12,7 +12,7 @@ const float EPSILON = 0.0001f;
 const float ANTI_ACNE = 0.001f;
 const vec3 ZEROS = vec3(0, 0, 0);
 const float FAKE_FOV = 0.6;
-const int RAY_TREE_NODES = 3; // depth 1 recursion
+const int RAY_TREE_NODES = 31; // depth 1 recursion
 
 // --------------------- Function Headers
 bool trace(inout vec3 colour);
@@ -90,10 +90,10 @@ void main() {
     //     }
     // }
 
-	for (currRay = 0; currRay < RAY_TREE_NODES; currRay++) {
-		myRays[currRay] = RayResult2(vec3(0,0,0), vec3(0,0,0), vec3(0,0,0), -1, -1);
-		isRay[currRay] = false;
-	}
+	// for (currRay = 0; currRay < RAY_TREE_NODES; currRay++) {
+	// 	myRays[currRay] = RayResult2(vec3(0,0,0), vec3(0,0,0), vec3(1,0,0), -1, -1);
+	// 	isRay[currRay] = false;
+	// }
 	//RayResult ray = rays[currRay];
 	myRays[0] = RayResult2(e, (s-e) ,vec3(0,0,0), -1, -1);
 	isRay[0] = true;
@@ -113,6 +113,7 @@ void main() {
     //debugViewRect(xPos, yPos);
     debugRed();
 }
+
 
 bool trace(inout vec3 colour) {
 
@@ -135,7 +136,7 @@ bool trace(inout vec3 colour) {
 		vec3 total = vec3(0, 0, 0);
 
 		if (hit) { 
-			isRay[currRay] == true; // mark current ray as valid
+			//isRay[currRay] == true; // mark current ray as valid
 			int oid = objectIds[indexOfClosest];
 
 			int matid = int(geometry[oid + 1].r);
@@ -177,7 +178,7 @@ bool trace(inout vec3 colour) {
 					isRay[reflectionRayIndex] = true;
 					myRays[currRay].prev = prev;
 					prev = currRay;
-					//nextLargestRay = min(nextLargestRay, reflectionRayIndex);
+					//nextLargestRay = min(nextLargestRay, reflectionRayIndex)
 				}
 			}
 
@@ -194,7 +195,11 @@ bool trace(inout vec3 colour) {
 			//colour = total;
 			//return true;
 		} else {
-			//isRay[currRay] = false;
+			//myRays[currRay].prev = prev;
+			// if (isRay[currRay]) {
+			// 	prev = currRay;
+			// 	myRays[currRay].prev = prev;
+			// }
 			//myRays[currRay].colour = background;
 			//myRays[currRay].useBackground = true;
 		}
@@ -203,36 +208,33 @@ bool trace(inout vec3 colour) {
 	}
 
 	int index = prev;
+
+	//while(index > 0) {
 	// traverse from leaves up
-	//while()
 	for (currRay = RAY_TREE_NODES - 1; currRay > 0; currRay--) {
-		//if(!isRay[currRay]) {continue;}
+		if(!isRay[currRay]) {continue;}
 		
-		//if(!isRay[currRay]) { continue;}
-		if(index == -1){
-			break;
-		}
+		if (currRay == -1) {break;}
 
 		int parentIndex;
 		int colourFactorIndex; // either the parent reflective/transmission value;
 
-		if (index % 2 == 0) { // this is transmission ray
+		if (currRay % 2 == 0) { // this is transmission ray
 			// parentIndex = (currRay / 2);
 
 			// int parentMatId = myRays[parentIndex].matid;
 			// colourFactorIndex = parentMatId + 4;
 		} 
 		else { // reflection is reflection ray
-			parentIndex = index / 2;
+			parentIndex = currRay / 2;
 			int parentMatId = myRays[parentIndex].matid;
 			colourFactorIndex = parentMatId + 3;	
 		}	
 
 		vec3 parentColourFactor = materials[colourFactorIndex];
 		vec3 _parentColourFactor = vec3(1,1,1) - parentColourFactor;
-		myRays[parentIndex].colour = myRays[parentIndex].colour * _parentColourFactor + myRays[index].colour * parentColourFactor;
-
-		index = myRays[index].prev;
+		myRays[parentIndex].colour = myRays[parentIndex].colour * _parentColourFactor + myRays[currRay].colour * parentColourFactor;
+		//clamp(myRays[parentIndex].colour);
 	}
 
 
