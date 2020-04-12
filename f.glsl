@@ -5,7 +5,7 @@ const int NUM_OBJECTS = 20;
 const int NUM_LIGHTS = 10;
 const int SPACE_GEOMETRY = 1000;
 const int SPACE_MATERIALS = 100;
-const int RECURSION_LIMIT = 20;
+const int RECURSION_LIMIT = 20; // 1 is just the primary ray
 const int TRIANGLES_LIMIT = 20; // Per mesh
 const float FLT_MAX = 16000000; // Probably not the best value
 const float ANTI_ACNE = 0.001f;
@@ -22,11 +22,14 @@ bool getIntersection(vec3 e, vec3 d, inout float dist, inout int indexOfClosest,
 bool testIntersectionWithObject(int i, vec3 e, vec3 d, inout float dist, inout int indexOfClosest, inout int indexOfTriangle);
 vec3 getShadowAmount(vec3 P, int lid, vec3 lightPos);
 bool determineLightDirection(vec3 P, int lid, inout vec3 L, inout vec3 lightPos);
-vec3 phongIllumination(int oid, int lid, vec3 N, vec3 L, vec3 V, bool inShadow);
+vec3 phongIllumination(int oid, int lid, vec3 N, vec3 L, vec3 V);
 vec3 calcNormal(int oid, vec3 P, int indexOfTriangle);
 vec3 calcReflection(int oid, vec3 P, vec3 N, vec3 V);
+vec3 calcTransmission(int oid, vec3 P, vec3 N, vec3 V);
+vec3 calcRefraction(int oid, vec3 P, vec3 N, vec3 V);
 float calcPlaneDistance(vec3 A, vec3 N, vec3 d, vec3 e);
 float acneThreshold(vec3 N, vec3 d);
+void initNewRay(vec3 e, vec3 D, bool outside, vec3 effectiveness);
 vec3 sumOutputColour();
 void clamp(inout vec3 vec);
 
@@ -97,9 +100,15 @@ bool trace() {
 	float dist = FLT_MAX;
 	int indexOfClosest = -1;
 	int indexOfTriangle = -1;
+	bool hit = false;
 
-	bool hit = getIntersection(e, D, dist, indexOfClosest, indexOfTriangle);
-	
+	if (rays[currRay].outside) {
+		hit = getIntersection(e, D, dist, indexOfClosest, indexOfTriangle);
+	}
+	else {
+		hit = getIntersection(e, D, dist, indexOfClosest, indexOfTriangle);
+	}
+
 	if (hit) {
 		int oid = objectIds[indexOfClosest];
 
@@ -109,29 +118,29 @@ bool trace() {
 		vec3 N = calcNormal(oid, P, indexOfTriangle); // Normal at intersection point
 		vec3 V = normalize(e - P); // Vector from P to eye.
 		
-		for (int i = 0; i < NUM_LIGHTS; i++) { // For each light
-			if (i == numLights) { break; }
-			int lid = lightIds[i];
+		if (rays[currRay].outside) { // Don't bother lighting inside an object.
+			for (int i = 0; i < NUM_LIGHTS; i++) { // For each light
+				if (i == numLights) { break; }
+				int lid = lightIds[i];
 
-			vec3 L = vec3(0, 0, 0);
-			vec3 lightPos = vec3(0, 0, 0);
+				vec3 L = vec3(0, 0, 0);
+				vec3 lightPos = vec3(0, 0, 0);
 
-			if (!determineLightDirection(P, lid, L, lightPos)) { continue; }
+				if (!determineLightDirection(P, lid, L, lightPos)) { continue; }
 
-			vec3 throughLight = getShadowAmount(P, lid, lightPos);
-			bool inShadow = (length(throughLight) < 0.1);
+				vec3 throughLight = getShadowAmount(P, lid, lightPos);
+				bool inShadow = (length(throughLight) < 0.1);
 
-			total += phongIllumination(oid, lid, N, L, V, inShadow) * throughLight;
-			
+				if (!inShadow) {
+					total += phongIllumination(oid, lid, N, L, V) * throughLight;
+				}
+			}
 		}
 		
 		vec3 reflection = calcReflection(oid, P, N, V);
-		vec3 transmission = ZEROS;
-		vec3 refraction = ZEROS;
-		//total += calcReflection(object, P, N, V, outside, pick, recursionLevel);
-		//total = calcTransmission(object, P, V, total, outside, pick, recursionLevel);
-		//total = calcRefraction(object, P, N, V, total, outside, pick, recursionLevel);
-
+		vec3 transmission = calcTransmission(oid, P, N, V);
+		vec3 refraction = calcRefraction(oid, P, N, V);
+		
 		rays[currRay].colour = total;
 		rays[currRay].effectiveness = (1 - (transmission + refraction)) * rays[currRay].effectiveness;
 		
@@ -153,33 +162,7 @@ vec3 sumOutputColour() {
 
 		outputColour += rays[i].colour * rays[i].effectiveness;
 	}
-
 	return outputColour;
-}
-
-
-vec3 calcReflection(int oid, vec3 P, vec3 N, vec3 V) {
-	int matid = int(geometry[oid + 1].r);
-	vec3 reflective = materials[matid + 3];
-	vec3 reflectionEffectiveness = reflective * rays[currRay].effectiveness;
-
-	if (reflective != ZEROS && numRays < RECURSION_LIMIT && rays[currRay].outside
-		&& length(reflectionEffectiveness) > WORTH_RECURSING) {
-
-		vec3 R = normalize(2.0 * dot(N, V) * N - V); // Reflection direction
-
-		rays[numRays].e = P;
-		rays[numRays].D = R;
-		rays[numRays].outside = rays[currRay].outside;
-		rays[numRays].effectiveness = reflectionEffectiveness;
-
-		numRays++;
-	}
-	else {
-		reflective = ZEROS;
-	}
-
-	return reflective;
 }
 
 
@@ -331,7 +314,7 @@ bool determineLightDirection(vec3 P, int lid, inout vec3 L, inout vec3 lightPos)
 
 
 // Calculate lighting equation at the hit point.
-vec3 phongIllumination(int oid, int lid, vec3 N, vec3 L, vec3 V, bool inShadow) {
+vec3 phongIllumination(int oid, int lid, vec3 N, vec3 L, vec3 V) {
 	vec3 total = ZEROS;
     int matid = int(geometry[oid + 1].r);
     vec3 ambient = materials[matid + 0];
@@ -347,13 +330,13 @@ vec3 phongIllumination(int oid, int lid, vec3 N, vec3 L, vec3 V, bool inShadow) 
 	}
 
 	// Diffuse component
-	if (diffuse != ZEROS && lightType > 3 && !inShadow) {
+	if (diffuse != ZEROS && lightType > 3) {
 		float dotProduct = dot(N, L);
 		total += lightColour * diffuse * max(0.f, dotProduct);
 	}
 
 	// Specular component
-	if (specular != ZEROS && lightType > 3 && !inShadow) {
+	if (specular != ZEROS && lightType > 3) {
 		vec3 R = normalize(2.f * dot(N, L) * N - L); // Reflection direction
 		float dotProduct = dot(R, V);
 
@@ -365,6 +348,99 @@ vec3 phongIllumination(int oid, int lid, vec3 N, vec3 L, vec3 V, bool inShadow) 
 
 	return total;
 }
+
+void initNewRay(vec3 e, vec3 D, bool outside, vec3 effectiveness) {
+	rays[numRays].e = e;
+	rays[numRays].D = D;
+	rays[numRays].outside = outside;
+	rays[numRays].effectiveness = effectiveness;
+	numRays++;
+}
+
+
+vec3 calcReflection(int oid, vec3 P, vec3 N, vec3 V) {
+	int matid = int(geometry[oid + 1].r);
+	vec3 reflective = materials[matid + 3];
+	vec3 reflectionEffectiveness = reflective * rays[currRay].effectiveness;
+
+	if (reflective != ZEROS && numRays < RECURSION_LIMIT && rays[currRay].outside
+		&& length(reflectionEffectiveness) > WORTH_RECURSING) {
+
+		vec3 R = normalize(2.0 * dot(N, V) * N - V); // Reflection direction
+		
+		initNewRay(P, R, rays[currRay].outside, reflectionEffectiveness);
+	}
+	else {
+		reflective = ZEROS;
+	}
+
+	return reflective;
+}
+
+
+vec3 calcTransmission(int oid, vec3 P, vec3 N, vec3 V) {
+	int matid = int(geometry[oid + 1].r);
+	vec3 transmissive = materials[matid + 4];
+	float refraction = materials[matid + 5].g;
+	vec3 transmissionEffectiveness = transmissive * rays[currRay].effectiveness;
+
+	if (transmissive != ZEROS && numRays < RECURSION_LIMIT && refraction == 0.0
+		&& length(transmissionEffectiveness) > WORTH_RECURSING) {
+
+		bool outside = rays[currRay].outside;
+		bool goingOutside = (geometry[oid].r == 1) ? outside : !outside; // If not plane, flip it.
+		
+		initNewRay(P, -V, goingOutside, transmissionEffectiveness);
+	}
+	else {
+		transmissive = ZEROS;
+	}
+
+	return transmissive;
+}
+
+
+vec3 calcRefraction(int oid, vec3 P, vec3 N, vec3 V) {
+	int matid = int(geometry[oid + 1].r);
+	vec3 transmissive = materials[matid + 4];
+	float refraction = materials[matid + 5].g;
+	vec3 refractionEffectiveness = transmissive * rays[currRay].effectiveness;
+
+	if (transmissive != ZEROS && numRays < RECURSION_LIMIT && refraction != 0.0
+		&& length(refractionEffectiveness) > WORTH_RECURSING) {
+		
+		bool outside = rays[currRay].outside;
+		bool goingOutside = (geometry[oid].r == 1) ? outside : !outside; // If not plane, flip it.
+
+		vec3 vEye = -V;
+		vec3 norm = (outside) ? N : -N;
+
+		float indexInc = (outside) ? 1.f : refraction;
+		float indexRef = (goingOutside) ? 1.f : refraction;
+
+		float numeratorPart2 = (1 - pow(dot(vEye, norm), 2));
+		float indicesRatio = (indexInc * indexInc) / (indexRef * indexRef);
+		float insideSqrt = 1 - indicesRatio * numeratorPart2;
+
+		if (insideSqrt < 0) { // Total Internal Reflection
+			vec3 R = normalize(2.0 * dot(norm, V) * norm - V);
+			
+			initNewRay(P, R, goingOutside, refractionEffectiveness);
+		}
+		else { // Refraction
+			vec3 numerator1 = indexInc * (vEye - norm * dot(vEye, norm));
+			vec3 R = normalize((numerator1 / indexRef) - norm * sqrt(insideSqrt));
+
+			initNewRay(P, R, goingOutside, refractionEffectiveness);
+		}
+	}
+	else {
+		transmissive = ZEROS;
+	}
+
+	return transmissive;
+}
+
 
 vec3 calcNormal(int oid, vec3 P, int indexOfTriangle) {
 	vec3 N = ZEROS;

@@ -142,11 +142,11 @@ void keyboardWindows() {
 	{
 		eye.x += MOVE_SPEED / fps;
 	}
-	if (GetKeyState('R') & 0x8000/*Check if high-order bit is set (1 << 15)*/)
+	if (GetKeyState('F') & 0x8000/*Check if high-order bit is set (1 << 15)*/)
 	{
 		eye.y -= MOVE_SPEED / fps;
 	}
-	if (GetKeyState('F') & 0x8000/*Check if high-order bit is set (1 << 15)*/)
+	if (GetKeyState('R') & 0x8000/*Check if high-order bit is set (1 << 15)*/)
 	{
 		eye.y += MOVE_SPEED / fps;
 	}
