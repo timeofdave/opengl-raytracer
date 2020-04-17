@@ -13,7 +13,7 @@
         "ambient":   [0.3, 0.3, 0.3],
         "specular":  [1, 1, 1],
         "shininess": 25.6,
-        "reflective": [0.5, 0.5, 0.5]
+        "reflective": [0.9, 0.9, 0.9]
       }
     },
     {
@@ -24,7 +24,7 @@
         "ambient":   [0.2, 0.2, 0.2],
         "specular":  [0.4, 0.4, 0.4],
         "shininess": 120.888832,
-        "reflective": [0.5, 0.5, 0.5]
+        "reflective": [0.9, 0.9, 0.9]
       }
     },
     {
@@ -66,7 +66,7 @@
       ],
       "material": {
         "ambient": [0.15, 0.15, 0.35],
-        "reflective": [0.5, 0.5, 0.5]
+        "reflective": [0.8, 0.8, 0.8]
       }
     }
   ],
@@ -77,26 +77,28 @@
       "color": [0.7, 0.7, 0.7]
     },
     {
-      "type":      "directional",
-      "color":     [0.9, 0.9, 0.9],
-      "direction": [-0.1, -1, 0]
+      "type": "directional",
+      "color": [ 0.9, 0.9, 0.9 ],
+      "direction": [ -0.1, -1, 0 ]
     },
     {
-      "type":      "directional",
-      "color":     [0.6, 0.6, 0.6],
-      "direction": [1, -0.1, -0.2]
+      "type": "directional",
+      "color": [ 0.6, 0.6, 0.6 ],
+      "direction": [ 1, -0.1, -0.2 ]
     },
     {
       "type":     "point",
       "color":    [0.6, 0.6, 0.0],
-      "position": [-1, 8, 1]
+      "position": [ -1, 8, 1 ],
+      "radius" :  0.05
     },
     {
-      "type":      "spot",
-      "color":     [0.2, 0.32, 0.85],
-      "position":  [-2, 3.9, 1.5],
-      "direction": [0.4, -0.8, -1],
-      "cutoff":    10
+      "type": "spot",
+      "color": [ 0.2, 0.32, 0.85 ],
+      "position": [ -2, 3.9, 1.5 ],
+      "direction": [ 0.4, -0.8, -1 ],
+      "cutoff": 10,
+      "radius": 0.2
     }
   ]
 }

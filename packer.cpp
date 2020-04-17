@@ -66,7 +66,7 @@ void packLights(int& geoId) {
 		lightIds[i] = geoId;
 		int index = geoId;
 
-		geometry[index++] = point3(light->type + 3, 0, light->cutoff);
+		geometry[index++] = point3(light->type + 3, light->radius, light->cutoff);
 		geometry[index++] = light->colour;
 		geometry[index++] = light->pos;
 		geometry[index++] = light->direction;

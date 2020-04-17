@@ -46,6 +46,7 @@ public:
 	point3 pos;
 	float cutoff;
 	point3 direction;
+	float radius;
 
 	Light(int theType);
 };

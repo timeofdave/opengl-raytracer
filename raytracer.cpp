@@ -160,6 +160,9 @@ void populateLights() {
 		if (light.find("color") != light.end()) {
 			lite->colour = vector_to_vec3(light["color"]);
 		}
+		if (light.find("radius") != light.end()) {
+			lite->radius = float(light["radius"]);
+		}
 		lights.push_back(lite);
 	}
 }

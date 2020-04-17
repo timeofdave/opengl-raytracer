@@ -7,6 +7,7 @@ const int SPACE_GEOMETRY = 1000;
 const int SPACE_MATERIALS = 100;
 const int RECURSION_LIMIT = 20; // 1 is just the primary ray
 const int TRIANGLES_LIMIT = 20; // Per mesh
+const int NUM_SHADOW_RAY = 50;
 const float FLT_MAX = 16000000; // Probably not the best value
 const float ANTI_ACNE = 0.001f;
 const vec3 ZEROS = vec3(0, 0, 0);
@@ -32,6 +33,7 @@ float acneThreshold(vec3 N, vec3 d);
 void initNewRay(vec3 e, vec3 D, bool outside, vec3 effectiveness);
 vec3 sumOutputColour();
 void clamp(inout vec3 vec);
+mat4 rotationMatrix(vec3 axis, float angle);
 
 // --------------------- Structs
 struct RayResult {
@@ -251,6 +253,7 @@ bool testIntersectionWithObject(int i, vec3 e, vec3 d, inout float dist, inout i
 }
 
 
+
 // ------------------- SHADOW CHECK -----------------------
 // get the amount of light that makes it to this point
 // Cast a ray from the point P to the light.
@@ -261,27 +264,77 @@ vec3 getShadowAmount(vec3 P, int lid, vec3 lightPos) {
 	if (lightType > 3) { // AMBIENT
 		
 		vec3 shadowRay = normalize(lightPos - P);
+		float areaRadius = float(geometry[lid].g);
 
-		for (int i = 0; i < NUM_OBJECTS; i++) {
-			if (i == numObjects) { break; }
+		if(areaRadius <= 0) {
+			for (int i = 0; i < NUM_OBJECTS; i++) {
 
-			int oid = objectIds[i];
-			float maxDist = length(lightPos - P);
-			int indexObjL = -1;
-			int indexTriL = -1;
+				if (i == numObjects) // this is needed otherwise this breaks
+					break;
+
+				int oid = objectIds[i];
+				float maxDist = length(lightPos - P);
+				int indexObjL = -1;
+				int indexTriL = -1;
+				
+				// test every object for intersection
+				if(testIntersectionWithObject(i, P, shadowRay, maxDist, indexObjL, indexTriL)) {
+					int matid = int(geometry[oid + 1].r);
+					vec3 transmission = materials[matid + 4];
+					throughLight = throughLight * transmission;
+				}
+			} // for each object
+		} else {
+
+			vec3 totalLight = vec3(0,0,0);
+			int numRays = int(NUM_SHADOW_RAY * (areaRadius/0.5f));
 			
-			// test every object for intersection
-        	if(testIntersectionWithObject(i, P, shadowRay, maxDist, indexObjL, indexTriL)) {
-				int matid = int(geometry[oid + 1].r);
-    			vec3 transmission = materials[matid + 4];
-				throughLight = throughLight * transmission;
+			for(int j = 0; j < NUM_SHADOW_RAY; j++) {
+
+				if (j == numRays)
+					break;
+
+				vec3 lightPortion = vec3(1,1,1) * (1.0f/numRays);
+
+				vec3 perpVector = normalize(cross(lightPos - P, vec3(1,1,1))) * areaRadius;
+				float radians = radians(360.0f/NUM_SHADOW_RAY * j);
+				mat4 rotation = rotationMatrix(lightPos - P, radians);
+				vec3 areaScale = perpVector;
+				vec4 areaScale4;
+				areaScale4.xyz = areaScale.xyz;
+				areaScale4.w = 0;		
+				
+				vec3 lightSpot = lightPos + (rotation * areaScale4).xyz;
+				vec3 shadowRay = normalize(lightSpot - P);			
+				
+				for (int i = 0; i < NUM_OBJECTS; i++) {
+					if (i == numObjects) // this is needed otherwise this breaks
+						break;
+
+					int oid = objectIds[i];
+					float maxDist = length(lightPos - P);
+					int indexObjL = -1;
+					int indexTriL = -1;
+					
+					// test every object for intersection
+					if(testIntersectionWithObject(i, P, shadowRay, maxDist, indexObjL, indexTriL)) {
+						int matid = int(geometry[oid + 1].r);
+						vec3 transmission = materials[matid + 4];
+						lightPortion = lightPortion * transmission;
+					}
+				}
+
+				totalLight += lightPortion;
 			}
-		} // for each object
+
+			throughLight = totalLight;
+	
+				
+		}
 
 	}
 	return throughLight;
 }
-
 
 bool determineLightDirection(vec3 P, int lid, inout vec3 L, inout vec3 lightPos) {
 	bool isVisible = true;
@@ -514,4 +567,18 @@ void debugViewRect(float xPos, float yPos) {
     if (abs(yPos) > 0.9) { out_colour.g = 1; }
     out_colour.b = yPos;
     out_colour.a = 1;
+}
+
+//http://www.neilmendoza.com/glsl-rotation-about-an-arbitrary-axis/
+mat4 rotationMatrix(vec3 axis, float angle)
+{
+    axis = normalize(axis);
+    float s = sin(angle);
+    float c = cos(angle);
+    float oc = 1.0 - c;
+    
+    return mat4(oc * axis.x * axis.x + c,           oc * axis.x * axis.y - axis.z * s,  oc * axis.z * axis.x + axis.y * s,  0.0,
+                oc * axis.x * axis.y + axis.z * s,  oc * axis.y * axis.y + c,           oc * axis.y * axis.z - axis.x * s,  0.0,
+                oc * axis.z * axis.x - axis.y * s,  oc * axis.y * axis.z + axis.x * s,  oc * axis.z * axis.z + c,           0.0,
+                0.0,                                0.0,                                0.0,                                1.0);
 }
