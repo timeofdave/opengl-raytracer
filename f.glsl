@@ -6,7 +6,7 @@ const int NUM_LIGHTS = 10;
 const int SPACE_GEOMETRY = 1000;
 const int SPACE_MATERIALS = 1000;
 const int RECURSION_LIMIT = 10; // 1 is just the primary ray
-const int TRIANGLES_LIMIT = 20; // Per mesh
+const int TRIANGLES_LIMIT = 100; // Per mesh
 const int NUM_SHADOW_RAY = 50;
 const float FLT_MAX = 16000000; // Probably not the best value
 const float ANTI_ACNE = 0.001f;
@@ -71,7 +71,7 @@ int numRays = 1;
 vec3 background = vec3(0, 0, 0);
 
 // --------------------- Animation Variables
-int movingObject = 1;
+int movingObject = -1;
 
 
 void main() { 
@@ -143,7 +143,15 @@ bool trace() {
 
 				if (!determineLightDirection(P, lid, L, lightPos)) { continue; }
 
-				vec3 throughLight = getShadowAmount(P, lid, lightPos);
+				vec3 throughLight = ONES;
+				int matid = int(geometry[oid + 1].r);
+				vec3 reflective = materials[matid + 3];
+				vec3 transmissive = materials[matid + 4];
+				vec3 directEffectiveness = (1 - min(1.0, length(reflective + transmissive))) * rays[currRay].effectiveness;
+				
+				if (length(directEffectiveness) > 0.4) {
+					throughLight = getShadowAmount(P, lid, lightPos); // Comment out to disable shadows
+				}
 				bool inShadow = (length(throughLight) < 0.1);
 
 				if (!inShadow) {

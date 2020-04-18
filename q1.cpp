@@ -20,7 +20,7 @@ const int NUM_LIGHTS = 10;
 const int SPACE_GEOMETRY = 1000;
 const int SPACE_MATERIALS = 1000;
 const float MOVE_SPEED = 6.0;
-const float ROTATE_SPEED = 100.0;
+const float ROTATE_SPEED = 70.0;
 const float GRAVITY = -9.8;
 
 GLuint Window;
@@ -184,7 +184,10 @@ glm::vec3 cameraRotateVector(glm::vec3 v) {
 }
 
 void keyboardWindows() {
-
+	if (GetKeyState(VK_LWIN) & 0x8000/*Check if high-order bit is set (1 << 15)*/)
+	{
+		return; // This allows for WIN+SHIFT+S screenshots
+	}
 	if (GetKeyState('W') & 0x8000/*Check if high-order bit is set (1 << 15)*/)
 	{
 		eye -= cameraRotateVector(glm::vec3(0, 0, 1)) * (MOVE_SPEED / fps);
