@@ -5,7 +5,7 @@ const int NUM_OBJECTS = 20;
 const int NUM_LIGHTS = 10;
 const int SPACE_GEOMETRY = 1000;
 const int SPACE_MATERIALS = 100;
-const int RECURSION_LIMIT = 20; // 1 is just the primary ray
+const int RECURSION_LIMIT = 10; // 1 is just the primary ray
 const int TRIANGLES_LIMIT = 20; // Per mesh
 const int NUM_SHADOW_RAY = 50;
 const float FLT_MAX = 16000000; // Probably not the best value
@@ -54,6 +54,8 @@ uniform vec3 geometry[SPACE_GEOMETRY];
 uniform vec3 materials[SPACE_MATERIALS];
 uniform int numObjects;
 uniform int numLights;
+uniform mat4 ModelTrans;
+uniform mat4 ViewTrans;
 
 // --------------------- Debug Variables
 float debug = 1234567.0; // flag value, means not debugging
@@ -66,6 +68,9 @@ int currRay = 0;
 int numRays = 1;
 vec3 background = vec3(0, 0, 0);
 
+// --------------------- Animation Variables
+int movingObject = 1;
+
 
 void main() { 
     out_colour.a = 1;
@@ -74,8 +79,11 @@ void main() {
     float yPos = (gl_FragCoord.y / Window.y) * 2 - 1;
     float xPos = (gl_FragCoord.x / Window.x) * aspectRatio * 2 - (aspectRatio);
 
-    vec3 e = eyePos;
-    vec3 s = vec3(e.x + xPos * FAKE_FOV, e.y + yPos * FAKE_FOV, e.z - 1.0);
+	vec4 e4 = ViewTrans * vec4(0, 0, 0, 1);
+	vec3 e = e4.xyz;
+    vec4 s4 = vec4(xPos * FAKE_FOV, yPos * FAKE_FOV, -1.0, 1);
+	vec4 t4 = ViewTrans * s4;
+	vec3 s = t4.xyz;
 
 	rays[0].e = e;
 	rays[0].D = s - e;
@@ -184,6 +192,12 @@ bool testIntersectionWithObject(int i, vec3 e, vec3 d, inout float dist, inout i
 
 	if (geometry[oid].r == 0) { // if sphere
 		vec3 pos = geometry[oid + 2];
+
+		if (i == movingObject) {
+			vec4 pos4 = ModelTrans * vec4(pos.x, pos.y, pos.z, 1);
+			pos = pos4.xyz;
+		}
+
 		vec3 emc = e - pos;
 		float r = float(geometry[oid].b);
 
