@@ -15,10 +15,10 @@
 const char *WINDOW_TITLE = "Ray Tracing";
 const double FRAME_RATE_MS = 1;
 
-const int NUM_OBJECTS = 20;
+const int NUM_OBJECTS = 30;
 const int NUM_LIGHTS = 10;
 const int SPACE_GEOMETRY = 1000;
-const int SPACE_MATERIALS = 100;
+const int SPACE_MATERIALS = 1000;
 const float MOVE_SPEED = 6.0;
 const float ROTATE_SPEED = 100.0;
 const float GRAVITY = -9.8;

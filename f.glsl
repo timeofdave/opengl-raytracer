@@ -1,10 +1,10 @@
 #version 150
 
 // --------------------- Constants
-const int NUM_OBJECTS = 20;
+const int NUM_OBJECTS = 30;
 const int NUM_LIGHTS = 10;
 const int SPACE_GEOMETRY = 1000;
-const int SPACE_MATERIALS = 100;
+const int SPACE_MATERIALS = 1000;
 const int RECURSION_LIMIT = 10; // 1 is just the primary ray
 const int TRIANGLES_LIMIT = 20; // Per mesh
 const int NUM_SHADOW_RAY = 50;
@@ -25,12 +25,12 @@ vec3 getShadowAmount(vec3 P, int lid, vec3 lightPos);
 bool determineLightDirection(vec3 P, int lid, inout vec3 L, inout vec3 lightPos);
 vec3 phongIllumination(int oid, int lid, vec3 N, vec3 L, vec3 V);
 vec3 calcNormal(int oid, vec3 P, int indexOfTriangle);
-vec3 calcReflection(int oid, vec3 P, vec3 N, vec3 V);
-vec3 calcTransmission(int oid, vec3 P, vec3 N, vec3 V);
-vec3 calcRefraction(int oid, vec3 P, vec3 N, vec3 V);
+vec3 calcReflection(int indexOfClosest, vec3 P, vec3 N, vec3 V);
+vec3 calcTransmission(int indexOfClosest, vec3 P, vec3 N, vec3 V);
+vec3 calcRefraction(int indexOfClosest, vec3 P, vec3 N, vec3 V);
 float calcPlaneDistance(vec3 A, vec3 N, vec3 d, vec3 e);
 float acneThreshold(vec3 N, vec3 d);
-void initNewRay(vec3 e, vec3 D, bool outside, vec3 effectiveness);
+void initNewRay(vec3 e, vec3 D, bool outside, vec3 effectiveness, int indexOfClosest);
 vec3 sumOutputColour();
 void clamp(inout vec3 vec);
 mat4 rotationMatrix(vec3 axis, float angle);
@@ -42,6 +42,7 @@ struct RayResult {
   vec3 D;
   vec3 effectiveness;
   bool outside;
+  int objectIndex; // Object ray is coming from, -1 for primary ray.
 };
 
 // --------------------- Uniforms
@@ -61,6 +62,7 @@ uniform mat4 ViewTrans;
 float debug = 1234567.0; // flag value, means not debugging
 float debugMin = 0.0;  // black
 float debugMax = 1.0; // red
+int debugCount = 0;
 
 // --------------------- General Variables
 RayResult rays[RECURSION_LIMIT];
@@ -89,6 +91,7 @@ void main() {
 	rays[0].D = s - e;
 	rays[0].effectiveness = vec3(1, 1, 1);
 	rays[0].outside = true;
+	rays[0].objectIndex = -1;
 
 	for (currRay = 0; currRay < RECURSION_LIMIT; currRay++) {
 		if (currRay >= numRays) { break; }
@@ -98,6 +101,7 @@ void main() {
 
 	out_colour.rgb = sumOutputColour();
 
+	//debug = debugCount;
     debugRed();
 }
 
@@ -116,7 +120,8 @@ bool trace() {
 		hit = getIntersection(e, D, dist, indexOfClosest, indexOfTriangle);
 	}
 	else {
-		hit = getIntersection(e, D, dist, indexOfClosest, indexOfTriangle);
+		int oind = rays[currRay].objectIndex;
+		hit = testIntersectionWithObject(oind, e, D, dist, indexOfClosest, indexOfTriangle);
 	}
 
 	if (hit) {
@@ -147,9 +152,9 @@ bool trace() {
 			}
 		}
 		
-		vec3 reflection = calcReflection(oid, P, N, V);
-		vec3 transmission = calcTransmission(oid, P, N, V);
-		vec3 refraction = calcRefraction(oid, P, N, V);
+		vec3 reflection = calcReflection(indexOfClosest, P, N, V);
+		vec3 transmission = calcTransmission(indexOfClosest, P, N, V);
+		vec3 refraction = calcRefraction(indexOfClosest, P, N, V);
 		
 		rays[currRay].colour = total;
 		rays[currRay].effectiveness = (1 - (transmission + refraction)) * rays[currRay].effectiveness;
@@ -215,7 +220,6 @@ bool testIntersectionWithObject(int i, vec3 e, vec3 d, inout float dist, inout i
 			if (t < dist) {
 				dist = t;
 				indexOfClosest = i;
-				return true;
 			}
 		}
 	}
@@ -229,7 +233,6 @@ bool testIntersectionWithObject(int i, vec3 e, vec3 d, inout float dist, inout i
 			if (t < dist) {
 				dist = t;
 				indexOfClosest = i;
-				return true;
 			}
 		}
 	}
@@ -258,12 +261,11 @@ bool testIntersectionWithObject(int i, vec3 e, vec3 d, inout float dist, inout i
 					dist = t;
 					indexOfClosest = i;
 					indexOfTriangle = j;
-					return true;
 				}
 			}
 		} // for each triangle
 	}
-	return false;
+	return (indexOfClosest == i);
 }
 
 
@@ -416,16 +418,18 @@ vec3 phongIllumination(int oid, int lid, vec3 N, vec3 L, vec3 V) {
 	return total;
 }
 
-void initNewRay(vec3 e, vec3 D, bool outside, vec3 effectiveness) {
+void initNewRay(vec3 e, vec3 D, bool outside, vec3 effectiveness, int indexOfClosest) {
 	rays[numRays].e = e;
 	rays[numRays].D = D;
 	rays[numRays].outside = outside;
 	rays[numRays].effectiveness = effectiveness;
+	rays[numRays].objectIndex = indexOfClosest;
 	numRays++;
 }
 
 
-vec3 calcReflection(int oid, vec3 P, vec3 N, vec3 V) {
+vec3 calcReflection(int indexOfClosest, vec3 P, vec3 N, vec3 V) {
+	int oid = objectIds[indexOfClosest];
 	int matid = int(geometry[oid + 1].r);
 	vec3 reflective = materials[matid + 3];
 	vec3 reflectionEffectiveness = reflective * rays[currRay].effectiveness;
@@ -435,7 +439,7 @@ vec3 calcReflection(int oid, vec3 P, vec3 N, vec3 V) {
 
 		vec3 R = normalize(2.0 * dot(N, V) * N - V); // Reflection direction
 		
-		initNewRay(P, R, rays[currRay].outside, reflectionEffectiveness);
+		initNewRay(P, R, rays[currRay].outside, reflectionEffectiveness, indexOfClosest);
 	}
 	else {
 		reflective = ZEROS;
@@ -445,7 +449,8 @@ vec3 calcReflection(int oid, vec3 P, vec3 N, vec3 V) {
 }
 
 
-vec3 calcTransmission(int oid, vec3 P, vec3 N, vec3 V) {
+vec3 calcTransmission(int indexOfClosest, vec3 P, vec3 N, vec3 V) {
+	int oid = objectIds[indexOfClosest];
 	int matid = int(geometry[oid + 1].r);
 	vec3 transmissive = materials[matid + 4];
 	float refraction = materials[matid + 5].g;
@@ -457,7 +462,7 @@ vec3 calcTransmission(int oid, vec3 P, vec3 N, vec3 V) {
 		bool outside = rays[currRay].outside;
 		bool goingOutside = (geometry[oid].r == 1) ? outside : !outside; // If not plane, flip it.
 		
-		initNewRay(P, -V, goingOutside, transmissionEffectiveness);
+		initNewRay(P, -V, goingOutside, transmissionEffectiveness, indexOfClosest);
 	}
 	else {
 		transmissive = ZEROS;
@@ -467,7 +472,8 @@ vec3 calcTransmission(int oid, vec3 P, vec3 N, vec3 V) {
 }
 
 
-vec3 calcRefraction(int oid, vec3 P, vec3 N, vec3 V) {
+vec3 calcRefraction(int indexOfClosest, vec3 P, vec3 N, vec3 V) {
+	int oid = objectIds[indexOfClosest];
 	int matid = int(geometry[oid + 1].r);
 	vec3 transmissive = materials[matid + 4];
 	float refraction = materials[matid + 5].g;
@@ -492,13 +498,13 @@ vec3 calcRefraction(int oid, vec3 P, vec3 N, vec3 V) {
 		if (insideSqrt < 0) { // Total Internal Reflection
 			vec3 R = normalize(2.0 * dot(norm, V) * norm - V);
 			
-			initNewRay(P, R, goingOutside, refractionEffectiveness);
+			initNewRay(P, R, outside, refractionEffectiveness, indexOfClosest);
 		}
 		else { // Refraction
 			vec3 numerator1 = indexInc * (vEye - norm * dot(vEye, norm));
 			vec3 R = normalize((numerator1 / indexRef) - norm * sqrt(insideSqrt));
 
-			initNewRay(P, R, goingOutside, refractionEffectiveness);
+			initNewRay(P, R, goingOutside, refractionEffectiveness, indexOfClosest);
 		}
 	}
 	else {
