@@ -1,10 +1,10 @@
 #version 150
 
 // --------------------- Constants
-const int NUM_OBJECTS = 30;
+const int NUM_OBJECTS = 20;
 const int NUM_LIGHTS = 10;
 const int SPACE_GEOMETRY = 1000;
-const int SPACE_MATERIALS = 1000;
+const int SPACE_MATERIALS = 100;
 const int RECURSION_LIMIT = 10; // 1 is just the primary ray
 const int TRIANGLES_LIMIT = 100; // Per mesh
 const int NUM_SHADOW_RAY = 50;
@@ -23,7 +23,7 @@ bool getIntersection(vec3 e, vec3 d, inout float dist, inout int indexOfClosest,
 bool testIntersectionWithObject(int i, vec3 e, vec3 d, inout float dist, inout int indexOfClosest, inout int indexOfTriangle);
 vec3 getShadowAmount(vec3 P, int lid, vec3 lightPos);
 bool determineLightDirection(vec3 P, int lid, inout vec3 L, inout vec3 lightPos);
-vec3 phongIllumination(int oid, int lid, vec3 N, vec3 L, vec3 V);
+vec3 phongIllumination(vec3 e, vec3 d, int oid, int lid, vec3 N, vec3 L, vec3 V);
 vec3 calcNormal(int oid, vec3 P, int indexOfTriangle);
 vec3 calcReflection(int indexOfClosest, vec3 P, vec3 N, vec3 V);
 vec3 calcTransmission(int indexOfClosest, vec3 P, vec3 N, vec3 V);
@@ -34,6 +34,11 @@ void initNewRay(vec3 e, vec3 D, bool outside, vec3 effectiveness, int indexOfClo
 vec3 sumOutputColour();
 void clamp(inout vec3 vec);
 mat4 rotationMatrix(vec3 axis, float angle);
+float pointLineDistance(vec3 e, vec3 d, vec3 point);
+void getLightColour(vec3 e, vec3 d, int lid, inout vec3 colourC);
+void getLightColour(vec3 e, vec3 d, inout vec3 colourC);
+void getLightAmount(vec3 e, vec3 d, int lid, float dist, vec3 lightPos, float areaRadius, inout vec3 lightC);
+
 
 // --------------------- Structs
 struct RayResult {
@@ -69,6 +74,7 @@ RayResult rays[RECURSION_LIMIT];
 int currRay = 0;
 int numRays = 1;
 vec3 background = vec3(0, 0, 0);
+bool showLights = true;
 
 // --------------------- Animation Variables
 int movingObject = -1;
@@ -124,6 +130,10 @@ bool trace() {
 		hit = testIntersectionWithObject(oind, e, D, dist, indexOfClosest, indexOfTriangle);
 	}
 
+	if (showLights) {
+		getLightColour(e, D, total);
+	}
+
 	if (hit) {
 		int oid = objectIds[indexOfClosest];
 
@@ -155,7 +165,7 @@ bool trace() {
 				bool inShadow = (length(throughLight) < 0.1);
 
 				if (!inShadow) {
-					total += phongIllumination(oid, lid, N, L, V) * throughLight;
+					total += phongIllumination(e, D, oid, lid, N, L, V) * throughLight;
 				}
 			}
 		}
@@ -169,8 +179,8 @@ bool trace() {
 		
 	} // if hit
 	else {
-		rays[currRay].colour = background;
-		rays[currRay].effectiveness = ZEROS;
+		rays[currRay].colour = background + total;
+		//rays[currRay].effectiveness = ZEROS;
 	}
     
     return (indexOfClosest != -1);
@@ -391,7 +401,7 @@ bool determineLightDirection(vec3 P, int lid, inout vec3 L, inout vec3 lightPos)
 
 
 // Calculate lighting equation at the hit point.
-vec3 phongIllumination(int oid, int lid, vec3 N, vec3 L, vec3 V) {
+vec3 phongIllumination(vec3 e, vec3 d, int oid, int lid, vec3 N, vec3 L, vec3 V) {
 	vec3 total = ZEROS;
     int matid = int(geometry[oid + 1].r);
     vec3 ambient = materials[matid + 0];
@@ -595,6 +605,82 @@ void debugViewRect(float xPos, float yPos) {
     if (abs(yPos) > 0.9) { out_colour.g = 1; }
     out_colour.b = yPos;
     out_colour.a = 1;
+}
+
+float pointLineDistance(vec3 e, vec3 d, vec3 point) {
+
+	vec3 ab = d;
+	vec3 ac = point - e;
+
+	float dist = abs(length(cross(ab, ac)) / length(ab));
+	return dist;
+}
+
+void getLightColour(vec3 e, vec3 d, inout vec3 lightC) {
+
+	for (int i = 0; i < NUM_LIGHTS; i++) { // For each light
+		if (i == numLights) { break; }
+		int lid = lightIds[i];
+
+		getLightColour(e, d, lid, lightC);
+	}
+}
+
+void getLightColour(vec3 e, vec3 d, int lid, inout vec3 lightC) {
+	int lightType = int(geometry[lid].r);
+	float areaRadius = float(geometry[lid].g);
+	vec3 lightPos = ZEROS;
+	vec3 L = ZEROS;
+
+	if (lightType == 5 && areaRadius > 0) {// point and spot {
+
+		float dist = FLT_MAX;
+		if (determineLightDirection(e, lid, L, lightPos)) { 
+
+			getLightAmount(e, d, lid, dist, lightPos, areaRadius, lightC);
+		}
+	} else if (lightType == 6 && areaRadius > 0) {
+
+		determineLightDirection(e, lid, L, lightPos);
+
+		vec3 direction = geometry[lid + 3];
+		vec3 A = lightPos;
+		vec3 N = normalize(direction);
+
+		float t = calcPlaneDistance(A, N, d, e);
+
+		if (t > acneThreshold(N, d)) { // hit the plane
+			if (t < FLT_MAX) {
+				vec3 P = e + t*d;
+				float dist = length(P - e);
+				if (length(P-lightPos) < areaRadius*2 && dot(d, -direction) > 0) {
+					getLightAmount(e, d, lid, dist, lightPos, areaRadius, lightC);
+				}
+			}
+		}
+	}
+}
+
+void getLightAmount(vec3 e, vec3 d, int lid, float dist, vec3 lightPos, float areaRadius, inout vec3 lightC) {
+
+	vec3 lightColour = geometry[lid + 1];
+	int indexOfClosest = -1;
+	int indexOfTriangle = -1;
+	bool hit = getIntersection(e, d, dist, indexOfClosest, indexOfTriangle);
+	float lightDist = pointLineDistance(e, d, lightPos);
+	
+	if (dot(d, lightPos - e) > 0 && !hit) {
+		if(lightDist < areaRadius) {
+			lightC += lightColour;
+		} 
+		else if (lightDist > areaRadius && lightDist < areaRadius * 2) {
+			float dotProduct = -(lightDist - areaRadius * 2) * (1/areaRadius); // scale dotprod between 0 and 1
+			float shine = pow(dotProduct, 2); // change to get more/less shine
+			lightC += lightColour * shine;
+		}
+
+	}
+	
 }
 
 //http://www.neilmendoza.com/glsl-rotation-about-an-arbitrary-axis/
