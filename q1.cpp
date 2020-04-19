@@ -26,14 +26,16 @@ const float GRAVITY = -9.8;
 GLuint Window;
 GLuint program;
 GLuint ViewTrans;
-GLuint ModelTrans;
+GLuint BounceTrans;
+GLuint SpinTrans;
 
 int vp_width, vp_height;
 int numObjects;
 int numLights;
 
-point3 modelPos(0, 2, 0);
-point3 modelVelo(0, 0, 0);
+point3 bouncePos(0, 2, 0);
+point3 bounceVelo(0, 0, 0);
+point3 spinTheta(0, 0, 0);
 point3 eye;
 point3 eyeTheta;
 float d = 1;
@@ -41,7 +43,8 @@ float d = 1;
 float fps = 100.0;;
 void fpsMeter();
 void keyboardWindows();
-void modelTransform();
+void bounceTransform();
+void spinTransform();
 
 point3 vertices[6] = {
 	point3(-1.0,  1.0,  1.0),
@@ -105,7 +108,8 @@ void init(char *fn) {
 
 	Window = glGetUniformLocation( program, "Window" );
 	ViewTrans = glGetUniformLocation( program, "ViewTrans" );
-	ModelTrans = glGetUniformLocation( program, "ModelTrans" );
+	BounceTrans = glGetUniformLocation( program, "BounceTrans" );
+	SpinTrans = glGetUniformLocation( program, "SpinTrans" );
 
 	glClearColor( 0.7, 0.7, 0.8, 1 );
 
@@ -136,7 +140,8 @@ void display(void) {
 	glUniformMatrix4fv(ViewTrans, 1, GL_FALSE, glm::value_ptr(model_view));
 	//glUniform3f(glGetUniformLocation(program, "eyePos"), eye.x, eye.y, eye.z);
 
-	modelTransform();
+	bounceTransform();
+	spinTransform();
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -146,26 +151,42 @@ void display(void) {
 }
 
 
-void modelTransform() {
+void bounceTransform() {
 	// Physics
-	modelPos += modelVelo / fps;
+	bouncePos += bounceVelo / fps;
 
-	if (modelPos.y < -1.0) {
-		modelVelo = -modelVelo;
-		modelPos += modelVelo / fps;
+	if (bouncePos.y < -1.0) {
+		bounceVelo = -bounceVelo;
+		bouncePos += bounceVelo / fps;
 	}
 
-	modelVelo.y += GRAVITY / fps;
+	bounceVelo.y += GRAVITY / fps;
 
 	// Send to GPU
-	const glm::vec3 model_pos(modelPos.x, modelPos.y, modelPos.z);
+	const glm::vec3 model_pos(bouncePos.x, bouncePos.y, bouncePos.z);
 	glm::mat4 trans, rot, model_view;
 	trans = glm::translate(trans, model_pos);
 	//rot = glm::rotate(rot, glm::radians(eyeTheta.x), glm::vec3(1, 0, 0));
 	//rot = glm::rotate(rot, glm::radians(eyeTheta.y), glm::vec3(0, 1, 0));
 	//rot = glm::rotate(rot, glm::radians(eyeTheta.z), glm::vec3(0, 0, 1));
 	model_view = trans * rot;
-	glUniformMatrix4fv(ModelTrans, 1, GL_FALSE, glm::value_ptr(model_view));
+	glUniformMatrix4fv(BounceTrans, 1, GL_FALSE, glm::value_ptr(model_view));
+
+}
+
+void spinTransform() {
+	// Physics
+	spinTheta.y += 0.4;
+
+	// Send to GPU
+	const glm::vec3 model_pos(0, 0, -5);
+	glm::mat4 trans;
+	trans = glm::translate(trans, model_pos);
+	trans = glm::rotate(trans, glm::radians(spinTheta.x), glm::vec3(1, 0, 0));
+	trans = glm::rotate(trans, glm::radians(spinTheta.y), glm::vec3(0, 1, 0));
+	trans = glm::rotate(trans, glm::radians(spinTheta.z), glm::vec3(0, 0, 1));
+	trans = glm::translate(trans, -model_pos);
+	glUniformMatrix4fv(SpinTrans, 1, GL_FALSE, glm::value_ptr(trans));
 }
 
 //----------------------------------------------------------------------------

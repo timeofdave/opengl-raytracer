@@ -60,7 +60,8 @@ uniform vec3 geometry[SPACE_GEOMETRY];
 uniform vec3 materials[SPACE_MATERIALS];
 uniform int numObjects;
 uniform int numLights;
-uniform mat4 ModelTrans;
+uniform mat4 BounceTrans;
+uniform mat4 SpinTrans;
 uniform mat4 ViewTrans;
 
 // --------------------- Debug Variables
@@ -77,7 +78,8 @@ vec3 background = vec3(0, 0, 0);
 bool showLights = true;
 
 // --------------------- Animation Variables
-int movingObject = -1;
+int bouncingObject = -1;
+int spinningObject = 0;
 
 
 void main() { 
@@ -153,8 +155,11 @@ bool trace() {
 
 				if (!determineLightDirection(P, lid, L, lightPos)) { continue; }
 
+				// backface checks
+				if (dot(L, N) < 0) { continue; }
+				//if (dot(V, N) < 0) { continue; }
+
 				vec3 throughLight = ONES;
-				int matid = int(geometry[oid + 1].r);
 				vec3 reflective = materials[matid + 3];
 				vec3 transmissive = materials[matid + 4];
 				vec3 directEffectiveness = (1 - min(1.0, length(reflective + transmissive))) * rays[currRay].effectiveness;
@@ -212,12 +217,17 @@ bool getIntersection(vec3 e, vec3 d, inout float dist, inout int indexOfClosest,
 
 bool testIntersectionWithObject(int i, vec3 e, vec3 d, inout float dist, inout int indexOfClosest, inout int indexOfTriangle) {
 	int oid = objectIds[i];
+	int objectType = int(geometry[oid].r);
 
-	if (geometry[oid].r == 0) { // if sphere
+	if (objectType == 0) { // if sphere
 		vec3 pos = geometry[oid + 2];
 
-		if (i == movingObject) {
-			vec4 pos4 = ModelTrans * vec4(pos.x, pos.y, pos.z, 1);
+		if (i == bouncingObject) {
+			vec4 pos4 = BounceTrans * vec4(pos.x, pos.y, pos.z, 1);
+			pos = pos4.xyz;
+		}
+		if (i == spinningObject) {
+			vec4 pos4 = SpinTrans * vec4(pos.x, pos.y, pos.z, 1);
 			pos = pos4.xyz;
 		}
 
@@ -241,7 +251,7 @@ bool testIntersectionWithObject(int i, vec3 e, vec3 d, inout float dist, inout i
 			}
 		}
 	}
-	else if (geometry[oid].r == 1) {
+	else if (objectType == 1) {
 		vec3 A = geometry[oid + 2]; // object->pos
 		vec3 N = geometry[oid + 3]; // object->normal
 
@@ -254,7 +264,7 @@ bool testIntersectionWithObject(int i, vec3 e, vec3 d, inout float dist, inout i
 			}
 		}
 	}
-	else if (geometry[oid].r == 2) {
+	else if (objectType == 2) {
 		int numTris = int(geometry[oid].g);
 
 		for (int j = 0; j < TRIANGLES_LIMIT; j++) {
@@ -266,6 +276,13 @@ bool testIntersectionWithObject(int i, vec3 e, vec3 d, inout float dist, inout i
 			vec3 B = geometry[tid + 1];
 			vec3 C = geometry[tid + 2];
 			vec3 N = geometry[tid + 3];
+
+			if (i == spinningObject) {
+				A = (SpinTrans * vec4(A.x, A.y, A.z, 1)).xyz;
+				B = (SpinTrans * vec4(B.x, B.y, B.z, 1)).xyz;
+				C = (SpinTrans * vec4(C.x, C.y, C.z, 1)).xyz;
+				N = cross(B - A, C - A);
+			}
 
 			float t = calcPlaneDistance(A, N, d, e);
 			vec3 X = e + (t * d);
@@ -548,6 +565,16 @@ vec3 calcNormal(int oid, vec3 P, int indexOfTriangle) {
 	if (type == 2) {
         int tid = oid + 4 + (indexOfTriangle * 4); // Triange id
 		N = normalize(geometry[tid + 3]);
+
+		if (spinningObject > 0 && oid == objectIds[spinningObject]) {
+			vec3 A = geometry[tid + 0];
+			vec3 B = geometry[tid + 1];
+			vec3 C = geometry[tid + 2];
+			A = (SpinTrans * vec4(A.x, A.y, A.z, 1)).xyz;
+			B = (SpinTrans * vec4(B.x, B.y, B.z, 1)).xyz;
+			C = (SpinTrans * vec4(C.x, C.y, C.z, 1)).xyz;
+			N = cross(B - A, C - A);
+		}
 	}
 	return N;
 }
