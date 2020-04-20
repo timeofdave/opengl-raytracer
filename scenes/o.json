@@ -88,7 +88,8 @@
       "material": {
          "specular":   [0.1, 0.1, 0.1],
          "shininess":  1,
-         "reflective": [0.4, 0.4, 0.4]
+         "reflective": [0.4, 0.4, 0.4],
+         "diffuse":    [0.8, 0.8, 0.8]
       }
     },
     {
