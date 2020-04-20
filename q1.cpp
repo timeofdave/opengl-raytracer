@@ -276,20 +276,23 @@ void keyboardWindows() {
 void keyboard( unsigned char key, int x, int y ) {
 	switch( key ) {
 	case 033: // Escape Key
-	//case 'q': case 'Q':
 		exit( EXIT_SUCCESS );
 		break;
 	case '1':
 		AREA_SHADOWS = !AREA_SHADOWS;
+		printf("\n  AREA_SHADOWS: %s \n", AREA_SHADOWS ? "true" : "false");
 		break;
 	case '2':
 		SHOW_LIGHTS = !SHOW_LIGHTS;
+		printf("\n  SHOW_LIGHTS: %s \n", SHOW_LIGHTS ? "true" : "false");
 		break;
 	case '3':
 		ALIAS_RAYS = (ALIAS_RAYS == 1) ? 4 : 1; // VALID VALUES (1, 4)
+		printf("\n  ALIAS_RAYS: %d \n", ALIAS_RAYS);
 		break;
 	case '4':
 		LIGHT_ATTENUATION = !LIGHT_ATTENUATION;
+		printf("\n  LIGHT_ATTENUATION: %s \n", LIGHT_ATTENUATION ? "true" : "false");
 		break;
 	}
 
@@ -298,23 +301,13 @@ void keyboard( unsigned char key, int x, int y ) {
 //----------------------------------------------------------------------------
 
 void mouse( int button, int state, int x, int y ) {
-	y = vp_height - y - 1;
-	if ( state == GLUT_DOWN ) {
-		switch( button ) {
-		case GLUT_LEFT_BUTTON:
-			colour3 c;
-			point3 uvw = s(x, y);
-			std::cout << std::endl;
-			std::cout << "--------------------------- Raycast -----------------------------\n";
-			if (trace(eyePos, uvw, c, true, 0, true)) {
-				//std::cout << "HIT @ ( " << uvw.x << "," << uvw.y << "," << uvw.z << " )\n";
-				//std::cout << "      colour = ( " << c.r << "," << c.g << "," << c.b << " )\n";
-			} else {
-				//std::cout << "MISS @ ( " << uvw.x << "," << uvw.y << "," << uvw.z << " )\n";
-			}
-			break;
-		}
-	}
+	//y = vp_height - y - 1;
+	//if ( state == GLUT_DOWN ) {
+	//	switch( button ) {
+	//	case GLUT_LEFT_BUTTON:
+	//		break;
+	//	}
+	//}
 }
 
 //----------------------------------------------------------------------------
@@ -351,9 +344,9 @@ void fpsMeter()
 
 	if (now - before > 200) {
 		fps = frameCount / ((now - before) * 0.001);
-		printf("FPS: %0.1f \r", fps); // Regular output
+		printf("\rFPS: %0.1f", fps); // Regular output
 
-		printf("\n");
+		//printf("\n");
 		frameCount = 0;
 		before += 200; // = now;
 	}

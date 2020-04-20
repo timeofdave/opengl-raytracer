@@ -187,14 +187,14 @@ void choose_scene(char const* fn) {
 
 	json camera = scene["camera"];
 	// these are optional parameters (otherwise they default to the values initialized earlier)
-	if (camera.find("field") != camera.end()) {
-		fov = camera["field"];
-		std::cout << "Setting fov to " << fov << " degrees.\n";
-	}
-	if (camera.find("background") != camera.end()) {
-		background_colour = vector_to_vec3(camera["background"]);
-		std::cout << "Setting background colour to " << glm::to_string(background_colour) << std::endl;
-	}
+	//if (camera.find("field") != camera.end()) {
+	//	fov = camera["field"];
+	//	std::cout << "Setting fov to " << fov << " degrees.\n";
+	//}
+	//if (camera.find("background") != camera.end()) {
+	//	background_colour = vector_to_vec3(camera["background"]);
+	//	std::cout << "Setting background colour to " << glm::to_string(background_colour) << std::endl;
+	//}
 
 	populateObjects();
 	populateLights();
