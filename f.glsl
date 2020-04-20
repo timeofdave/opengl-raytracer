@@ -216,11 +216,7 @@ bool trace() {
 				bool inShadow = (length(throughLight) < 0.1);
 
 				if (!inShadow) {
-<<<<<<< HEAD
-					total += phongIllumination(e, D, oid, lid, N, L, V) * throughLight * lightAttenuation;
-=======
-					total += phongIllumination(e, D, oid, lid, N, L, V, P) * throughLight;
->>>>>>> 719bf53b49d5b4de95b4e7f277fe5a093216a032
+					total += phongIllumination(e, D, oid, lid, N, L, V, P) * throughLight * lightAttenuation;
 				}
 			}
 		}
