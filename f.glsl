@@ -17,6 +17,7 @@ const float WORTH_RECURSING = 0.1;
 
 // --------------------- Function Headers
 bool trace();
+void getAliasOffset(int index, inout float x, inout float y);
 void debugRed();
 void debugViewRect(float xPos, float yPos);
 bool getIntersection(vec3 e, vec3 d, inout float dist, inout int indexOfClosest, inout int indexOfTriangle);
@@ -76,43 +77,83 @@ int currRay = 0;
 int numRays = 1;
 vec3 background = vec3(0, 0, 0);
 bool showLights = true;
+int ALIAS_RAYS = 1; // VALID VALUES (1, 4)
 
 // --------------------- Animation Variables
 int bouncingObject = -1;
 int spinningObject = 0;
 
-
 void main() { 
+
+	vec3 colours[4];
     out_colour.a = 1;
     float aspectRatio = Window.x / Window.y;
 
-    float yPos = (gl_FragCoord.y / Window.y) * 2 - 1;
-    float xPos = (gl_FragCoord.x / Window.x) * aspectRatio * 2 - (aspectRatio);
+	for (int j = 0; j < ALIAS_RAYS; j++) {
 
-	vec4 e4 = ViewTrans * vec4(0, 0, 0, 1);
-	vec3 e = e4.xyz;
-    vec4 s4 = vec4(xPos * FAKE_FOV, yPos * FAKE_FOV, -1.0, 1);
-	vec4 t4 = ViewTrans * s4;
-	vec3 s = t4.xyz;
+		float xOff = 0;
+		float yOff = 0;
+		getAliasOffset(j, xOff, yOff);
+		float yPos = ((gl_FragCoord.y + yOff) / Window.y) * 2 - 1;
+    	float xPos = ((gl_FragCoord.x + xOff) / Window.x) * aspectRatio * 2 - (aspectRatio);
+		vec4 e4 = ViewTrans * vec4(0, 0, 0, 1);
+		vec3 e = e4.xyz;
+		vec4 s4 = vec4(xPos * FAKE_FOV, yPos * FAKE_FOV, -1.0, 1);
+		vec4 t4 = ViewTrans * s4;
+		vec3 s = t4.xyz;
 
-	rays[0].e = e;
-	rays[0].D = s - e;
-	rays[0].effectiveness = vec3(1, 1, 1);
-	rays[0].outside = true;
-	rays[0].objectIndex = -1;
+		rays[0].e = e;
+		rays[0].D = s - e;
+		rays[0].effectiveness = vec3(1, 1, 1);
+		rays[0].outside = true;
+		rays[0].objectIndex = -1;
 
-	for (currRay = 0; currRay < RECURSION_LIMIT; currRay++) {
-		if (currRay >= numRays) { break; }
+		for (currRay = 0; currRay < RECURSION_LIMIT; currRay++) {
+			if (currRay >= numRays) { break; }
 
-        trace();
-    }
+			trace();
+		}
 
-	out_colour.rgb = sumOutputColour();
+		colours[j] = sumOutputColour();
+		numRays = 1;
+		currRay = 0;
+	}
+
+	vec3 tempColour = ZEROS;
+	for (int j = 0; j < ALIAS_RAYS; j++) {
+		tempColour += colours[j];
+	}
+	out_colour.rgb = (tempColour / ALIAS_RAYS);
 
 	//debug = debugCount;
     debugRed();
 }
 
+void getAliasOffset(int index, inout float x, inout float y) {
+	if (ALIAS_RAYS == 1) {
+		x = 0;
+		y = 0;
+	} else if (ALIAS_RAYS == 4) {
+		switch(index) {
+			case 0:
+				x = 3.0f/4;
+				y = 1.0f/4;
+				break;
+			case 1:
+				x = 1.0f/4;
+				y = -3.0f/4;
+				break;
+			case 2:
+				x = -1.0f/4;
+				y = 3.0f/4;
+				break;
+			case 3:
+				x = -1.0f/4;
+				y = -3.0f/4;
+				break;
+		}
+	}
+}
 
 bool trace() {
 	vec3 e = rays[currRay].e;
