@@ -39,6 +39,7 @@ float pointLineDistance(vec3 e, vec3 d, vec3 point);
 void getLightColour(vec3 e, vec3 d, int lid, inout vec3 colourC);
 void getLightColour(vec3 e, vec3 d, inout vec3 colourC);
 void getLightAmount(vec3 e, vec3 d, int lid, float dist, vec3 lightPos, float areaRadius, inout vec3 lightC);
+float getLightAttenuation(int lid, vec3 P, vec3 lightPos);
 
 
 // --------------------- Structs
@@ -76,8 +77,9 @@ RayResult rays[RECURSION_LIMIT];
 int currRay = 0;
 int numRays = 1;
 vec3 background = vec3(0, 0, 0);
-bool showLights = true;
+bool SHOW_LIGHTS = false;
 int ALIAS_RAYS = 1; // VALID VALUES (1, 4)
+bool LIGHT_ATTENUATION = true;
 
 // --------------------- Animation Variables
 int bouncingObject = -1;
@@ -173,7 +175,7 @@ bool trace() {
 		hit = testIntersectionWithObject(oind, e, D, dist, indexOfClosest, indexOfTriangle);
 	}
 
-	if (showLights) {
+	if (SHOW_LIGHTS) {
 		getLightColour(e, D, total);
 	}
 
@@ -203,15 +205,17 @@ bool trace() {
 				vec3 throughLight = ONES;
 				vec3 reflective = materials[matid + 3];
 				vec3 transmissive = materials[matid + 4];
+				float lightAttenuation = getLightAttenuation(lid, P, lightPos);
+				
 				vec3 directEffectiveness = (1 - min(1.0, length(reflective + transmissive))) * rays[currRay].effectiveness;
 				
 				if (length(directEffectiveness) > 0.4) {
-					//throughLight = getShadowAmount(P, lid, lightPos); // Comment out to disable shadows
+					throughLight = getShadowAmount(P, lid, lightPos); // Comment out to disable shadows
 				}
 				bool inShadow = (length(throughLight) < 0.1);
 
 				if (!inShadow) {
-					total += phongIllumination(e, D, oid, lid, N, L, V) * throughLight;
+					total += phongIllumination(e, D, oid, lid, N, L, V) * throughLight * lightAttenuation;
 				}
 			}
 		}
@@ -420,12 +424,27 @@ vec3 getShadowAmount(vec3 P, int lid, vec3 lightPos) {
 			}
 
 			throughLight = totalLight;
-	
 				
 		}
 
 	}
 	return throughLight;
+}
+
+float getLightAttenuation(int lid, vec3 P, vec3 lightPos) {
+    int type = int(geometry[lid].r);
+
+	if(!LIGHT_ATTENUATION)
+		return 1;
+	
+	if (type > 4) { //POINT_LIGHT
+		float dist = length(P - lightPos) / 10;
+		float val = 1.0f / ((1 + (0.3* dist) + (0.3 * dist * dist)) * 1.0f);
+		return val;
+	} else {
+		return 1;
+	}
+
 }
 
 bool determineLightDirection(vec3 P, int lid, inout vec3 L, inout vec3 lightPos) {
@@ -467,6 +486,7 @@ vec3 phongIllumination(vec3 e, vec3 d, int oid, int lid, vec3 N, vec3 L, vec3 V)
     vec3 specular = materials[matid + 2];
     float shininess = materials[matid + 5].r;
     int lightType = int(geometry[lid].r);
+
     vec3 lightColour = geometry[lid + 1];
 
 	// Ambient component
