@@ -22,7 +22,7 @@ void debugRed();
 void debugViewRect(float xPos, float yPos);
 bool getIntersection(vec3 e, vec3 d, inout float dist, inout int indexOfClosest, inout int indexOfTriangle);
 bool testIntersectionWithObject(int i, vec3 e, vec3 d, inout float dist, inout int indexOfClosest, inout int indexOfTriangle);
-vec3 getShadowAmount(vec3 P, int lid, vec3 lightPos);
+vec3 getShadowAmount(vec3 P, int lid, vec3 lightPos, vec3 L);
 bool determineLightDirection(vec3 P, int lid, inout vec3 L, inout vec3 lightPos);
 vec3 phongIllumination(vec3 e, vec3 d, int oid, int lid, vec3 N, vec3 L, vec3 V, vec3 P);
 vec3 calcNormal(int oid, vec3 P, int indexOfTriangle);
@@ -77,6 +77,7 @@ RayResult rays[RECURSION_LIMIT];
 int currRay = 0;
 int numRays = 1;
 vec3 background = vec3(0, 0, 0);
+float SOFT_SPOT_LIGHT = 0.5f; // how much angle is soft
 
 // --------------------- User-controllable Variables
 uniform bool SHOW_LIGHTS = false;
@@ -214,7 +215,7 @@ bool trace() {
 				vec3 directEffectiveness = (1 - min(1.0, length(reflective + transmissive))) * rays[currRay].effectiveness;
 				
 				if (length(directEffectiveness) > 0.4) {
-					throughLight = getShadowAmount(P, lid, lightPos); // Comment out to disable shadows
+					throughLight = getShadowAmount(P, lid, lightPos, L); // Comment out to disable shadows
 				}
 				bool inShadow = (length(throughLight) < 0.1);
 
@@ -357,7 +358,7 @@ bool testIntersectionWithObject(int i, vec3 e, vec3 d, inout float dist, inout i
 // ------------------- SHADOW CHECK -----------------------
 // get the amount of light that makes it to this point
 // Cast a ray from the point P to the light.
-vec3 getShadowAmount(vec3 P, int lid, vec3 lightPos) {
+vec3 getShadowAmount(vec3 P, int lid, vec3 lightPos, vec3 L) {
     int lightType = int(geometry[lid].r);
 	vec3 throughLight = vec3(1,1,1); // default all light makes it through
 	int hitCount = 0;
@@ -395,16 +396,21 @@ vec3 getShadowAmount(vec3 P, int lid, vec3 lightPos) {
 					break;
 
 				vec3 lightPortion = vec3(1,1,1) * (1.0f/numRays);
+				vec3 perpVector;
 
-				vec3 perpVector = normalize(cross(lightPos - P, vec3(1,1,1))) * areaRadius;
-				float radians = radians(360.0f/NUM_SHADOW_RAY * j);
-				mat4 rotation = rotationMatrix(lightPos - P, radians);
-				vec3 areaScale = perpVector;
-				vec4 areaScale4;
-				areaScale4.xyz = areaScale.xyz;
-				areaScale4.w = 0;		
+				// make half of the points in the middle of light, half on the edge
+				if(j > NUM_SHADOW_RAY/2) {
+					perpVector = normalize(cross(L, vec3(-1,.75,66666))) * areaRadius/2;
+				} else {
+					perpVector = normalize(cross(L, vec3(-1,.75,66666))) * areaRadius;
+				}
+				float degrees = (360.0f/NUM_SHADOW_RAY) * (j*2);
+				mat4 rotation = rotationMatrix(lightPos - P, degrees);
+				vec4 perpVector4;
+				perpVector4.xyz = perpVector.xyz;
+				perpVector4.w = 1;		
 				
-				vec3 lightSpot = lightPos + (rotation * areaScale4).xyz;
+				vec3 lightSpot = lightPos + (rotation * perpVector4).xyz;
 				vec3 shadowRay = normalize(lightSpot - P);			
 				
 				for (int i = 0; i < NUM_OBJECTS; i++) {
@@ -470,7 +476,7 @@ bool determineLightDirection(vec3 P, int lid, inout vec3 L, inout vec3 lightPos)
 
 		L = normalize(lightPos - P);
 		vec3 lightFacing = normalize(direction);
-		float cutoff = radians(float(geometry[lid].b));
+		float cutoff = radians(float(geometry[lid].b) + SOFT_SPOT_LIGHT);
 		float dotProduct = dot(L, -lightFacing);
 
 		if (dotProduct < cos(cutoff)) {
@@ -491,7 +497,26 @@ vec3 phongIllumination(vec3 e, vec3 d, int oid, int lid, vec3 N, vec3 L, vec3 V,
     float shininess = materials[matid + 5].r;
     int lightType = int(geometry[lid].r);
 
-    vec3 lightColour = geometry[lid + 1];
+    vec3 lightColour = geometry[lid + 1];	
+
+	// soft area light
+    if (lightType == 6 && AREA_SHADOWS) { 
+        vec3 direction = geometry[lid + 3];
+		//vec3 lightPos = geometry[lid + 2];		
+		//L = normalize(lightPos - P);
+		vec3 lightFacing = normalize(direction);
+		float cutoffLarge = radians(float(geometry[lid].b + SOFT_SPOT_LIGHT));
+		float cutoffSmall = radians(float(geometry[lid].b - SOFT_SPOT_LIGHT));		
+		float dotProduct = dot(L, -lightFacing);
+		float scale = 1;
+		if (dotProduct > cos(cutoffLarge) && dotProduct < cos(cutoffSmall)) {
+			float range = cos(cutoffSmall) - cos(cutoffLarge); // amount you can be larger than smallest
+			float val = (cos(cutoffSmall) - dotProduct) / range; // 0 if you are large, 1 if you are small
+			scale = 1-val;
+		}
+
+		lightColour = lightColour * scale;
+	}
 
 	// Ambient component
 	if (ambient != ZEROS && lightType == 3) { // AMBIENT
@@ -798,7 +823,6 @@ void getLightAmount(vec3 e, vec3 d, int lid, float dist, vec3 lightPos, float ar
 		}
 
 	}
-	
 }
 
 //http://www.neilmendoza.com/glsl-rotation-about-an-arbitrary-axis/
