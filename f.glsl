@@ -366,7 +366,7 @@ vec3 getShadowAmount(vec3 P, int lid, vec3 lightPos) {
 		vec3 shadowRay = normalize(lightPos - P);
 		float areaRadius = float(geometry[lid].g);
 
-		if(areaRadius <= 0) {
+		if(areaRadius <= 0 || !AREA_SHADOWS) {
 			for (int i = 0; i < NUM_OBJECTS; i++) {
 
 				if (i == numObjects) // this is needed otherwise this breaks
