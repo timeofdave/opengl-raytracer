@@ -33,18 +33,24 @@ int vp_width, vp_height;
 int numObjects;
 int numLights;
 
+// User-controllable uniforms
 point3 bouncePos(0, 2, 0);
 point3 bounceVelo(0, 0, 0);
 point3 spinTheta(0, 0, 0);
-point3 eye;
+point3 eyePos;
 point3 eyeTheta;
-float d = 1;
+bool SHOW_LIGHTS = false;
+int ALIAS_RAYS = 1; // VALID VALUES (1, 4)
+bool LIGHT_ATTENUATION = true;
+bool AREA_SHADOWS = true;
 
-float fps = 100.0;;
+float d = 1;
+float fps = 100.0; // starting point
 void fpsMeter();
 void keyboardWindows();
 void bounceTransform();
 void spinTransform();
+void resendSettings();
 
 point3 vertices[6] = {
 	point3(-1.0,  1.0,  1.0),
@@ -84,7 +90,7 @@ point3 s(int x, int y) {
 void init(char *fn) {
 	choose_scene(fn);
 	pack_scene();
-	eye = point3(0, 0, 0);
+	eyePos = point3(0, 0, 0);
    
 	// Create a vertex array object
 	GLuint vao;
@@ -130,7 +136,7 @@ void display(void) {
 	keyboardWindows();
 
 	// Camera Transform
-	const glm::vec3 viewer_pos(eye.x, eye.y, eye.z);
+	const glm::vec3 viewer_pos(eyePos.x, eyePos.y, eyePos.z);
 	glm::mat4 trans, rot, model_view;
 	trans = glm::translate(trans, viewer_pos);
 	rot = glm::rotate(rot, glm::radians(eyeTheta.x), glm::vec3(1, 0, 0));
@@ -143,6 +149,8 @@ void display(void) {
 	bounceTransform();
 	spinTransform();
 
+	resendSettings();
+
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
 	glFlush();
@@ -150,6 +158,12 @@ void display(void) {
 	glutSwapBuffers();
 }
 
+void resendSettings() {
+	glUniform1i(glGetUniformLocation(program, "SHOW_LIGHTS"), SHOW_LIGHTS);
+	glUniform1i(glGetUniformLocation(program, "ALIAS_RAYS"), ALIAS_RAYS);
+	glUniform1i(glGetUniformLocation(program, "LIGHT_ATTENUATION"), LIGHT_ATTENUATION);
+	glUniform1i(glGetUniformLocation(program, "AREA_SHADOWS"), AREA_SHADOWS);
+}
 
 void bounceTransform() {
 	// Physics
@@ -211,19 +225,19 @@ void keyboardWindows() {
 	}
 	if (GetKeyState('W') & 0x8000/*Check if high-order bit is set (1 << 15)*/)
 	{
-		eye -= cameraRotateVector(glm::vec3(0, 0, 1)) * (MOVE_SPEED / fps);
+		eyePos -= cameraRotateVector(glm::vec3(0, 0, 1)) * (MOVE_SPEED / fps);
 	}
 	if (GetKeyState('S') & 0x8000/*Check if high-order bit is set (1 << 15)*/)
 	{
-		eye += cameraRotateVector(glm::vec3(0, 0, 1)) * (MOVE_SPEED / fps);
+		eyePos += cameraRotateVector(glm::vec3(0, 0, 1)) * (MOVE_SPEED / fps);
 	}
 	if (GetKeyState('A') & 0x8000/*Check if high-order bit is set (1 << 15)*/)
 	{
-		eye -= cameraRotateVector(glm::vec3(1, 0, 0)) * (MOVE_SPEED / fps);
+		eyePos -= cameraRotateVector(glm::vec3(1, 0, 0)) * (MOVE_SPEED / fps);
 	}
 	if (GetKeyState('D') & 0x8000/*Check if high-order bit is set (1 << 15)*/)
 	{
-		eye += cameraRotateVector(glm::vec3(1, 0, 0)) * (MOVE_SPEED / fps);
+		eyePos += cameraRotateVector(glm::vec3(1, 0, 0)) * (MOVE_SPEED / fps);
 	}
 	if (GetKeyState('Q') & 0x8000/*Check if high-order bit is set (1 << 15)*/)
 	{
@@ -251,11 +265,11 @@ void keyboardWindows() {
 	}
 	if (GetKeyState(VK_LSHIFT) & 0x8000/*Check if high-order bit is set (1 << 15)*/)
 	{
-		eye += cameraRotateVector(glm::vec3(0, 1, 0)) * (MOVE_SPEED / fps);
+		eyePos += cameraRotateVector(glm::vec3(0, 1, 0)) * (MOVE_SPEED / fps);
 	}
 	if (GetKeyState(VK_LCONTROL) & 0x8000/*Check if high-order bit is set (1 << 15)*/)
 	{
-		eye -= cameraRotateVector(glm::vec3(0, 1, 0)) * (MOVE_SPEED / fps);
+		eyePos -= cameraRotateVector(glm::vec3(0, 1, 0)) * (MOVE_SPEED / fps);
 	}
 }
 
@@ -265,24 +279,18 @@ void keyboard( unsigned char key, int x, int y ) {
 	//case 'q': case 'Q':
 		exit( EXIT_SUCCESS );
 		break;
-	//case 'w':
-	//	eye.z -= MOVE_SPEED;
-	//	break;
-	//case 's':
-	//	eye.z += MOVE_SPEED;
-	//	break;
-	//case 'a':
-	//	eye.x -= MOVE_SPEED;
-	//	break;
-	//case 'd':
-	//	eye.x += MOVE_SPEED;
-	//	break;
-	//case 'r':
-	//	eye.y += MOVE_SPEED;
-	//	break;
-	//case 'f':
-	//	eye.y -= MOVE_SPEED;
-	//	break;
+	case '1':
+		AREA_SHADOWS = !AREA_SHADOWS;
+		break;
+	case '2':
+		SHOW_LIGHTS = !SHOW_LIGHTS;
+		break;
+	case '3':
+		ALIAS_RAYS = (ALIAS_RAYS == 1) ? 4 : 1; // VALID VALUES (1, 4)
+		break;
+	case '4':
+		LIGHT_ATTENUATION = !LIGHT_ATTENUATION;
+		break;
 	}
 
 }
@@ -298,7 +306,7 @@ void mouse( int button, int state, int x, int y ) {
 			point3 uvw = s(x, y);
 			std::cout << std::endl;
 			std::cout << "--------------------------- Raycast -----------------------------\n";
-			if (trace(eye, uvw, c, true, 0, true)) {
+			if (trace(eyePos, uvw, c, true, 0, true)) {
 				//std::cout << "HIT @ ( " << uvw.x << "," << uvw.y << "," << uvw.z << " )\n";
 				//std::cout << "      colour = ( " << c.r << "," << c.g << "," << c.b << " )\n";
 			} else {

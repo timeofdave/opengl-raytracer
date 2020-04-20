@@ -77,9 +77,12 @@ RayResult rays[RECURSION_LIMIT];
 int currRay = 0;
 int numRays = 1;
 vec3 background = vec3(0, 0, 0);
-bool SHOW_LIGHTS = false;
-int ALIAS_RAYS = 1; // VALID VALUES (1, 4)
-bool LIGHT_ATTENUATION = true;
+
+// --------------------- User-controllable Variables
+uniform bool SHOW_LIGHTS = false;
+uniform int ALIAS_RAYS = 1; // VALID VALUES (1, 4)
+uniform bool LIGHT_ATTENUATION = true;
+uniform bool AREA_SHADOWS = true;
 
 // --------------------- Animation Variables
 int bouncingObject = -1;
