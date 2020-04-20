@@ -556,6 +556,16 @@ vec3 calcNormal(int oid, vec3 P, int indexOfTriangle) {
 	
 	if (type == 0) {
 		vec3 center = geometry[oid + 2];
+
+		if (bouncingObject >= 0 && oid == objectIds[spinningObject]) {
+			vec4 pos4 = BounceTrans * vec4(center.x, center.y, center.z, 1);
+			center = pos4.xyz;
+		}
+		if (spinningObject >= 0 && oid == objectIds[spinningObject]) {
+			vec4 pos4 = SpinTrans * vec4(center.x, center.y, center.z, 1);
+			center = pos4.xyz;
+		}
+
 		N = normalize(P - center);
 	}
 	if (type == 1) {
@@ -566,7 +576,7 @@ vec3 calcNormal(int oid, vec3 P, int indexOfTriangle) {
         int tid = oid + 4 + (indexOfTriangle * 4); // Triange id
 		N = normalize(geometry[tid + 3]);
 
-		if (spinningObject > 0 && oid == objectIds[spinningObject]) {
+		if (spinningObject >= 0 && oid == objectIds[spinningObject]) {
 			vec3 A = geometry[tid + 0];
 			vec3 B = geometry[tid + 1];
 			vec3 C = geometry[tid + 2];
