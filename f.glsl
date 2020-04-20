@@ -24,7 +24,7 @@ bool getIntersection(vec3 e, vec3 d, inout float dist, inout int indexOfClosest,
 bool testIntersectionWithObject(int i, vec3 e, vec3 d, inout float dist, inout int indexOfClosest, inout int indexOfTriangle);
 vec3 getShadowAmount(vec3 P, int lid, vec3 lightPos);
 bool determineLightDirection(vec3 P, int lid, inout vec3 L, inout vec3 lightPos);
-vec3 phongIllumination(vec3 e, vec3 d, int oid, int lid, vec3 N, vec3 L, vec3 V);
+vec3 phongIllumination(vec3 e, vec3 d, int oid, int lid, vec3 N, vec3 L, vec3 V, vec3 P);
 vec3 calcNormal(int oid, vec3 P, int indexOfTriangle);
 vec3 calcReflection(int indexOfClosest, vec3 P, vec3 N, vec3 V);
 vec3 calcTransmission(int indexOfClosest, vec3 P, vec3 N, vec3 V);
@@ -82,6 +82,7 @@ int ALIAS_RAYS = 1; // VALID VALUES (1, 4)
 // --------------------- Animation Variables
 int bouncingObject = -1;
 int spinningObject = 0;
+int checkeredObject = 1;
 
 void main() { 
 
@@ -211,7 +212,7 @@ bool trace() {
 				bool inShadow = (length(throughLight) < 0.1);
 
 				if (!inShadow) {
-					total += phongIllumination(e, D, oid, lid, N, L, V) * throughLight;
+					total += phongIllumination(e, D, oid, lid, N, L, V, P) * throughLight;
 				}
 			}
 		}
@@ -459,7 +460,7 @@ bool determineLightDirection(vec3 P, int lid, inout vec3 L, inout vec3 lightPos)
 
 
 // Calculate lighting equation at the hit point.
-vec3 phongIllumination(vec3 e, vec3 d, int oid, int lid, vec3 N, vec3 L, vec3 V) {
+vec3 phongIllumination(vec3 e, vec3 d, int oid, int lid, vec3 N, vec3 L, vec3 V, vec3 P) {
 	vec3 total = ZEROS;
     int matid = int(geometry[oid + 1].r);
     vec3 ambient = materials[matid + 0];
@@ -476,8 +477,16 @@ vec3 phongIllumination(vec3 e, vec3 d, int oid, int lid, vec3 N, vec3 L, vec3 V)
 
 	// Diffuse component
 	if (diffuse != ZEROS && lightType > 3) {
-		float dotProduct = dot(N, L);
-		total += lightColour * diffuse * max(0.f, dotProduct);
+		float cs = 1.0 / 0.4; // checkerSize
+		float lg = 10000.0;
+		int evenOdd = (int((P.x + lg) * cs) + int((P.y + lg) * cs) + int((P.z + lg) * cs));
+		if (geometry[oid].r == 1 && evenOdd % 2 == 1 && checkeredObject >= 0 && oid == objectIds[checkeredObject]) {
+			// This is a reflective part of a checkerboard.
+		}
+		else {
+			float dotProduct = dot(N, L);
+			total += lightColour * diffuse * max(0.f, dotProduct);
+		}
 	}
 
 	// Specular component
@@ -515,7 +524,15 @@ vec3 calcReflection(int indexOfClosest, vec3 P, vec3 N, vec3 V) {
 
 		vec3 R = normalize(2.0 * dot(N, V) * N - V); // Reflection direction
 		
-		initNewRay(P, R, rays[currRay].outside, reflectionEffectiveness, indexOfClosest);
+		float cs = 1.0 / 0.4; // checkerSize
+		float lg = 10000.0;
+		int evenOdd = (int((P.x + lg) * cs) + int((P.y + lg) * cs) + int((P.z + lg) * cs));
+		if (geometry[oid].r == 1 && evenOdd % 2 == 0 && checkeredObject >= 0 && oid == objectIds[checkeredObject]) {
+			// This is a diffuse part of a checkerboard.
+		}
+		else {
+			initNewRay(P, R, rays[currRay].outside, reflectionEffectiveness, indexOfClosest);
+		}
 	}
 	else {
 		reflective = ZEROS;
