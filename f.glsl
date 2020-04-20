@@ -165,7 +165,7 @@ bool trace() {
 				vec3 directEffectiveness = (1 - min(1.0, length(reflective + transmissive))) * rays[currRay].effectiveness;
 				
 				if (length(directEffectiveness) > 0.4) {
-					throughLight = getShadowAmount(P, lid, lightPos); // Comment out to disable shadows
+					//throughLight = getShadowAmount(P, lid, lightPos); // Comment out to disable shadows
 				}
 				bool inShadow = (length(throughLight) < 0.1);
 
@@ -583,7 +583,7 @@ vec3 calcNormal(int oid, vec3 P, int indexOfTriangle) {
 			A = (SpinTrans * vec4(A.x, A.y, A.z, 1)).xyz;
 			B = (SpinTrans * vec4(B.x, B.y, B.z, 1)).xyz;
 			C = (SpinTrans * vec4(C.x, C.y, C.z, 1)).xyz;
-			N = cross(B - A, C - A);
+			N = normalize(cross(B - A, C - A));
 		}
 	}
 	return N;
