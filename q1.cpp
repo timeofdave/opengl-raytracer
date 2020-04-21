@@ -42,8 +42,8 @@ point3 eyeTheta;
 bool SHOW_LIGHTS = false;
 int ALIAS_RAYS = 1; // VALID VALUES (1, 4)
 int RAY_LIMIT = 10;
-bool LIGHT_ATTENUATION = true;
-bool AREA_SHADOWS = true;
+bool LIGHT_ATTENUATION = false;
+bool AREA_SHADOWS = false;
 int bouncingObject = -1;
 int spinningObject = -1;
 
