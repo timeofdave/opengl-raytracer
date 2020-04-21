@@ -664,7 +664,7 @@ vec3 calcNormal(int oid, vec3 P, int indexOfTriangle) {
 	if (type == 0) {
 		vec3 center = geometry[oid + 2];
 
-		if (bouncingObject >= 0 && oid == objectIds[spinningObject]) {
+		if (bouncingObject >= 0 && oid == objectIds[bouncingObject]) {
 			vec4 pos4 = BounceTrans * vec4(center.x, center.y, center.z, 1);
 			center = pos4.xyz;
 		}
