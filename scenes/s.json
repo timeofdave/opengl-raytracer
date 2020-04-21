@@ -1,0 +1,116 @@
+{
+  "camera": {
+    "field":      60,
+    "background": [0.3, 0.3, 0.3]
+  },
+
+  "objects": [
+    {
+      "type":        "sphere",
+      "radius":      1.0,
+      "position":    [1.6, -1.5, -6.5],
+      "material": {
+         "diffuse":   [1, 0, 0],
+         "specular":   [0.5, 0.5, 0.5],
+         "shininess":  40,
+         "reflective": [0.8, 0.8, 0.8]
+      }
+    },
+    {
+      "type":        "sphere",
+      "radius":      0.2,
+      "position":    [0.4, -2.3, -5.5],
+      "material": {
+         "diffuse":   [1, 1, 1],
+         "specular":   [0.5, 0.5, 0.5],
+         "shininess":  40,
+         "reflective": [0.8, 0.8, 0.8]
+      }
+    },
+
+
+
+
+    {
+      "type":      "plane",
+      "position":  [0, -2.5, 0],
+      "normal":    [0, 1, 0],
+      "material": {
+         "diffuse":    [0.1, 0.1, 0.1],
+         "specular":   [0.5, 0.5, 0.5],
+         "shininess":  1,
+         "reflective": [0.2, 0.2, 0.2]
+      }
+    },
+    {
+      "type":      "plane",
+      "position":  [0, 3, 0],
+      "normal":    [0, -1, 0],
+      "material": {
+         "diffuse":    [0.2, 0.2, 0.2]
+      }
+    },
+
+
+
+
+    {
+      "type":      "plane",
+      "position":  [-3, 0, 0],
+      "normal":    [1, 0, 0],
+      "material": {
+         "diffuse":    [0.2, 0.2, 0.2]
+      }
+    },
+    {
+      "type":      "plane",
+      "position":  [3, 0, 0],
+      "normal":    [-1, 0, 0],
+      "material": {
+         "diffuse":    [0.2, 0.2, 0.2]
+      }
+    },
+
+
+
+
+
+
+
+    {
+      "type":      "plane",
+      "position":  [0, 0, -10],
+      "normal":    [0, 0, 1],
+      "material": {
+         "shininess":  1,
+         "reflective": [0.99, 0.99, 0.99]
+      }
+    },
+    {
+      "type":      "plane",
+      "position":  [0, 0, 1],
+      "normal":    [0.05, 0, -1],
+      "material": {
+         "shininess":  1,
+         "reflective": [0.99, 0.99, 0.99]
+      }
+    }
+  ],
+  
+  "lights": [
+    {
+      "type":      "point",
+      "color":     [0.8, 0.2, 0.2],
+      "position": [0, 2.0, -2.5],
+	  "radius" : 0.1
+    },
+	{
+      "type":      "spot",
+      "color":     [0.8, 0.8, 0.8],
+      "position": [2.3, 2.4, -2.5],
+	  "direction" : [-0.48,-0.48,-0.5],
+	  "cutoff" : 25,
+	  "radius" : 0.3
+    }
+  ]
+}
