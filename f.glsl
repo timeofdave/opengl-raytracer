@@ -84,10 +84,11 @@ uniform bool SHOW_LIGHTS = false;
 uniform int ALIAS_RAYS = 1; // VALID VALUES (1, 4)
 uniform bool LIGHT_ATTENUATION = true;
 uniform bool AREA_SHADOWS = true;
+uniform int RAY_LIMIT = 20;
 
 // --------------------- Animation Variables
-int bouncingObject = -1;
-int spinningObject = -1;
+uniform int bouncingObject = -1;
+uniform int spinningObject = -1;
 int checkeredObject = 1;
 
 void main() { 
@@ -115,7 +116,7 @@ void main() {
 		rays[0].outside = true;
 		rays[0].objectIndex = -1;
 
-		for (currRay = 0; currRay < RECURSION_LIMIT; currRay++) {
+		for (currRay = 0; currRay < min(RAY_LIMIT, RECURSION_LIMIT); currRay++) {
 			if (currRay >= numRays) { break; }
 
 			trace();
@@ -245,7 +246,7 @@ bool trace() {
 vec3 sumOutputColour() {
 	vec3 outputColour = ZEROS;
 
-	for (int i = 0; i < RECURSION_LIMIT; i++) {
+	for (int i = 0; i < min(RAY_LIMIT, RECURSION_LIMIT); i++) {
 		if (i >= numRays) { break; }
 
 		outputColour += rays[i].colour * rays[i].effectiveness;
@@ -567,7 +568,7 @@ vec3 calcReflection(int indexOfClosest, vec3 P, vec3 N, vec3 V) {
 	vec3 reflective = materials[matid + 3];
 	vec3 reflectionEffectiveness = reflective * rays[currRay].effectiveness;
 
-	if (reflective != ZEROS && numRays < RECURSION_LIMIT && rays[currRay].outside
+	if (reflective != ZEROS && numRays < min(RAY_LIMIT, RECURSION_LIMIT) && rays[currRay].outside
 		&& length(reflectionEffectiveness) > WORTH_RECURSING) {
 
 		vec3 R = normalize(2.0 * dot(N, V) * N - V); // Reflection direction
@@ -597,7 +598,7 @@ vec3 calcTransmission(int indexOfClosest, vec3 P, vec3 N, vec3 V) {
 	float refraction = materials[matid + 5].g;
 	vec3 transmissionEffectiveness = transmissive * rays[currRay].effectiveness;
 
-	if (transmissive != ZEROS && numRays < RECURSION_LIMIT && refraction == 0.0
+	if (transmissive != ZEROS && numRays < min(RAY_LIMIT, RECURSION_LIMIT) && refraction == 0.0
 		&& length(transmissionEffectiveness) > WORTH_RECURSING) {
 
 		bool outside = rays[currRay].outside;
@@ -620,7 +621,7 @@ vec3 calcRefraction(int indexOfClosest, vec3 P, vec3 N, vec3 V) {
 	float refraction = materials[matid + 5].g;
 	vec3 refractionEffectiveness = transmissive * rays[currRay].effectiveness;
 
-	if (transmissive != ZEROS && numRays < RECURSION_LIMIT && refraction != 0.0
+	if (transmissive != ZEROS && numRays < min(RAY_LIMIT, RECURSION_LIMIT) && refraction != 0.0
 		&& length(refractionEffectiveness) > WORTH_RECURSING) {
 		
 		bool outside = rays[currRay].outside;

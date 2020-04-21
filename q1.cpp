@@ -18,7 +18,7 @@ const double FRAME_RATE_MS = 1;
 const int NUM_OBJECTS = 20;
 const int NUM_LIGHTS = 10;
 const int SPACE_GEOMETRY = 1000;
-const int SPACE_MATERIALS = 100;
+const int SPACE_MATERIALS = 500;
 const float MOVE_SPEED = 6.0;
 const float ROTATE_SPEED = 70.0;
 const float GRAVITY = -9.8;
@@ -41,8 +41,11 @@ point3 eyePos;
 point3 eyeTheta;
 bool SHOW_LIGHTS = false;
 int ALIAS_RAYS = 1; // VALID VALUES (1, 4)
+int RAY_LIMIT = 10;
 bool LIGHT_ATTENUATION = true;
 bool AREA_SHADOWS = true;
+int bouncingObject = -1;
+int spinningObject = -1;
 
 float d = 1;
 float fps = 100.0; // starting point
@@ -161,8 +164,11 @@ void display(void) {
 void resendSettings() {
 	glUniform1i(glGetUniformLocation(program, "SHOW_LIGHTS"), SHOW_LIGHTS);
 	glUniform1i(glGetUniformLocation(program, "ALIAS_RAYS"), ALIAS_RAYS);
+	glUniform1i(glGetUniformLocation(program, "RAY_LIMIT"), RAY_LIMIT);
 	glUniform1i(glGetUniformLocation(program, "LIGHT_ATTENUATION"), LIGHT_ATTENUATION);
 	glUniform1i(glGetUniformLocation(program, "AREA_SHADOWS"), AREA_SHADOWS);
+	glUniform1i(glGetUniformLocation(program, "bouncingObject"), bouncingObject);
+	glUniform1i(glGetUniformLocation(program, "spinningObject"), spinningObject);
 }
 
 void bounceTransform() {
@@ -293,6 +299,29 @@ void keyboard( unsigned char key, int x, int y ) {
 	case '4':
 		LIGHT_ATTENUATION = !LIGHT_ATTENUATION;
 		printf("\n  LIGHT_ATTENUATION: %s \n", LIGHT_ATTENUATION ? "true" : "false");
+		break;
+	case '-':
+	case '_':
+		if (RAY_LIMIT > 0) {
+			RAY_LIMIT--;
+			printf("\n  RAY_LIMIT: %d \n", RAY_LIMIT);
+		}
+		break;
+	case '=':
+	case '+':
+		RAY_LIMIT++;
+		printf("\n  RAY_LIMIT: %d \n", RAY_LIMIT);
+		break;
+	case ',':
+		bouncingObject++;
+		bouncePos.y = 0;
+		bounceVelo.y = 0;
+		printf("\n  bouncingObject: %d \n", bouncingObject);
+		break;
+	case '.':
+		spinningObject++;
+		spinTheta.y = 0;
+		printf("\n  spinningObject: %d \n", spinningObject);
 		break;
 	}
 
