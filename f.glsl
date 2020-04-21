@@ -87,7 +87,7 @@ uniform bool AREA_SHADOWS = true;
 
 // --------------------- Animation Variables
 int bouncingObject = -1;
-int spinningObject = 0;
+int spinningObject = -1;
 int checkeredObject = 1;
 
 void main() { 
@@ -765,7 +765,7 @@ void getLightColour(vec3 e, vec3 d, inout vec3 lightC) {
 		if (i == numLights) { break; }
 		int lid = lightIds[i];
 
-		getLightColour(e, d, lid, lightC);
+		getLightColour(e, normalize(d), lid, lightC);
 	}
 }
 
@@ -777,7 +777,7 @@ void getLightColour(vec3 e, vec3 d, int lid, inout vec3 lightC) {
 
 	if (lightType == 5 && areaRadius > 0) {// point and spot {
 
-		float dist = FLT_MAX;
+		float dist = length(e-lightPos);
 		if (determineLightDirection(e, lid, L, lightPos)) { 
 
 			getLightAmount(e, d, lid, dist, lightPos, areaRadius, lightC);
@@ -790,6 +790,7 @@ void getLightColour(vec3 e, vec3 d, int lid, inout vec3 lightC) {
 		vec3 A = lightPos;
 		vec3 N = normalize(direction);
 
+		// distance to spot light plane
 		float t = calcPlaneDistance(A, N, d, e);
 
 		if (t > acneThreshold(N, d)) { // hit the plane
@@ -809,10 +810,11 @@ void getLightAmount(vec3 e, vec3 d, int lid, float dist, vec3 lightPos, float ar
 	vec3 lightColour = geometry[lid + 1];
 	int indexOfClosest = -1;
 	int indexOfTriangle = -1;
-	bool hit = getIntersection(e, d, dist, indexOfClosest, indexOfTriangle);
+	float closest = FLT_MAX;
+	bool hit = getIntersection(e, d, closest, indexOfClosest, indexOfTriangle);
 	float lightDist = pointLineDistance(e, d, lightPos);
 	
-	if (dot(d, lightPos - e) > 0 && !hit) {
+	if (dot(d, lightPos - e) > 0 && dist < closest) {
 		if(lightDist < areaRadius) {
 			lightC += lightColour;
 		} 
